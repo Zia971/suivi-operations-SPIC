@@ -408,8 +408,8 @@ def render_phases_tab(operation_id):
         with col2:
             st.write(f"**{phase.get('sous_phase', 'Phase sans nom')}**")
 st.caption(f"Phase: {phase.get('phase_principale', 'N/A')}")
-            if phase['commentaire']:
-                st.caption(phase['commentaire'])
+            if phase.get('commentaire'):
+                st.caption(phase.get('commentaire', ''))
         
         with col3:
             date_debut = st.date_input(
