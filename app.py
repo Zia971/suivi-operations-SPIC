@@ -146,7 +146,7 @@ def page_manager():
     # Top 3 opérations à risque
     st.subheader("⚠️ Top 3 Opérations à Risque")
     
-    # Calcul du risque (exemple : faible avancement + statut problématique)
+    # Calcul du risque
     df_risque = df_operations.copy()
     df_risque['score_risque'] = (
         (100 - df_risque['pourcentage_avancement']) * 0.7 +
@@ -313,11 +313,6 @@ def page_nouvelle_operation():
                     
                     st.success(f"✅ Opération '{nom}' créée avec succès ! (ID: {operation_id})")
                     st.info("Les phases ont été automatiquement générées selon le type d'opération.")
-                    
-                    # Option pour aller directement au détail
-                    if st.form_submit_button("Voir le détail de l'opération"):
-                        st.session_state.operation_selectionnee = operation_id
-                        st.rerun()
                         
                 except Exception as e:
                     st.error(f"Erreur lors de la création : {str(e)}")
@@ -424,7 +419,7 @@ def render_phases_tab(operation_id):
                 key=f"fin_{phase['id']}"
             )
         
-       with col5:
+        with col5:
             # Couleur selon validation et dates
             if est_validee:
                 couleur = "🟢"  # Vert - Validée
@@ -439,49 +434,6 @@ def render_phases_tab(operation_id):
         
         # Stockage des modifications
         if est_validee != phase.get('est_validee', False):
-            phases_modifiees.append({
-                'id': phase['id'],
-                'est_validee': est_validee,
-                'date_debut_prevue': str(date_debut) if date_debut else None,
-                'date_fin_prevue': str(date_fin) if date_fin else None
-            })
-    
-    # Bouton de sauvegarde
-    if phases_modifiees:
-        if st.button("💾 Enregistrer les modifications", type="primary"):
-            try:
-                for phase_modif in phases_modifiees:
-                    db.update_phase(
-                        phase_id=phase_modif['id'],
-                        est_validee=phase_modif['est_validee'],
-                        date_debut_prevue=phase_modif['date_debut_prevue'],
-                        date_fin_prevue=phase_modif['date_fin_prevue']
-                    )
-                
-                # Mise à jour du pourcentage d'avancement
-                phases_actualisees = db.get_phases_by_operation(operation_id)
-                nouveau_pourcentage = utils.calculate_progress(phases_actualisees)
-                db.update_operation_progress(operation_id, nouveau_pourcentage)
-                
-                # Ajout dans le journal
-                db.add_journal_entry(
-                    operation_id=operation_id,
-                    auteur="Système",
-                    type_action="MODIFICATION",
-                    contenu=f"Mise à jour de {len(phases_modifiees)} phase(s)"
-                )
-                
-                st.success("✅ Modifications sauvegardées !")
-                st.rerun()
-                
-            except Exception as e:
-                st.error(f"Erreur lors de la sauvegarde : {str(e)}")
-        
-        # Stockage des modifications
-        if (est_validee != phase['est_validee'] or 
-            str(date_debut) != phase['date_debut_prevue'] or 
-            str(date_fin) != phase['date_fin_prevue']):
-            
             phases_modifiees.append({
                 'id': phase['id'],
                 'est_validee': est_validee,
@@ -636,15 +588,15 @@ def render_finances_tab(operation_id):
         col1, col2, col3 = st.columns(3)
         with col1:
             total_engagements = df_mouvements[df_mouvements['type_mouvement'] == 'engagement']['montant_ht'].sum()
-            st.metric("Engagements", utils.format_currency(total_engagements))
+            st.metric("Engagements", f"{total_engagements:,.2f} €")
         
         with col2:
             total_mandats = df_mouvements[df_mouvements['type_mouvement'] == 'mandat']['montant_ht'].sum()
-            st.metric("Mandats", utils.format_currency(total_mandats))
+            st.metric("Mandats", f"{total_mandats:,.2f} €")
         
         with col3:
             total_soldes = df_mouvements[df_mouvements['type_mouvement'] == 'solde']['montant_ht'].sum()
-            st.metric("Soldes", utils.format_currency(total_soldes))
+            st.metric("Soldes", f"{total_soldes:,.2f} €")
         
         # Tableau détaillé
         st.subheader("📊 Détail des mouvements")
@@ -715,7 +667,7 @@ def render_fichiers_tab(operation_id):
             else:
                 st.warning("Veuillez sélectionner un fichier")
 
- # Liste des fichiers
+    # Liste des fichiers
     st.markdown("---")
     fichiers = db.get_files_by_operation(operation_id)
     
@@ -727,16 +679,16 @@ def render_fichiers_tab(operation_id):
             
             with col1:
                 st.write(f"**{fichier['nom_fichier']}**")
-                if fichier['description']:
-                    st.caption(fichier['description'])
+                if fichier.get('description'):
+                    st.caption(fichier.get('description', ''))
             
             with col2:
-                st.write(fichier['categorie'])
+                st.write(fichier.get('categorie', 'N/A'))
             
             with col3:
-                taille_mb = fichier['taille_bytes'] / (1024 * 1024)
+                taille_mb = fichier.get('taille_bytes', 0) / (1024 * 1024)
                 st.write(f"{taille_mb:.2f} MB")
-                st.caption(fichier['date_upload'])
+                st.caption(fichier.get('date_upload', ''))
             
             with col4:
                 # Bouton de téléchargement
@@ -746,7 +698,7 @@ def render_fichiers_tab(operation_id):
                         label="📥",
                         data=file_data,
                         file_name=fichier['nom_fichier'],
-                        mime=fichier['type_mime'],
+                        mime=fichier.get('type_mime', 'application/octet-stream'),
                         key=f"download_{fichier['id']}"
                     )
                 except Exception as e:
@@ -769,22 +721,66 @@ def render_timeline_tab(operation_id):
     
     if type_viz == "Frise chronologique":
         try:
-            timeline_html = utils.generate_timeline(operation_id, db)
-            if timeline_html:
-                st.components.v1.html(timeline_html, height=500)
+            phases = db.get_phases_by_operation(operation_id)
+            if phases:
+                st.subheader("📅 Planning des phases")
+                
+                for phase in phases:
+                    col1, col2, col3 = st.columns([1, 3, 1])
+                    
+                    with col1:
+                        if phase.get('est_validee', False):
+                            st.write("✅")
+                        else:
+                            st.write("⏳")
+                    
+                    with col2:
+                        st.write(f"**{phase.get('sous_phase', 'Phase')}**")
+                        st.caption(f"Phase: {phase.get('phase_principale', '')}")
+                    
+                    with col3:
+                        duree = phase.get('duree_mini_jours', 0)
+                        if duree:
+                            st.caption(f"{duree} jours")
             else:
-                st.warning("Impossible de générer la frise chronologique")
+                st.warning("Aucune phase pour cette opération")
         except Exception as e:
             st.error(f"Erreur génération timeline : {str(e)}")
     
     elif type_viz == "Carte mentale":
         try:
             phases = db.get_phases_by_operation(operation_id)
-            mental_map_html = utils.create_mental_map(phases)
-            if mental_map_html:
-                st.components.v1.html(mental_map_html, height=500)
+            if phases:
+                st.subheader("🗂️ Vue d'ensemble des phases")
+                
+                # Groupement par phase principale
+                phases_groupees = {}
+                for phase in phases:
+                    phase_principale = phase.get('phase_principale', 'Autres')
+                    if phase_principale not in phases_groupees:
+                        phases_groupees[phase_principale] = []
+                    phases_groupees[phase_principale].append(phase)
+                
+                # Affichage par groupe
+                for phase_principale, sous_phases in phases_groupees.items():
+                    with st.expander(f"📋 {phase_principale} ({len(sous_phases)} sous-phases)"):
+                        for sous_phase in sous_phases:
+                            col1, col2 = st.columns([1, 4])
+                            
+                            with col1:
+                                if sous_phase.get('est_validee', False):
+                                    st.write("✅")
+                                else:
+                                    st.write("⏳")
+                            
+                            with col2:
+                                st.write(f"**{sous_phase.get('sous_phase', 'Sous-phase')}**")
+                                
+                                responsable = sous_phase.get('responsable_principal', '')
+                                if responsable:
+                                    st.caption(f"Responsable: {responsable}")
             else:
-                st.warning("Impossible de générer la carte mentale")
+                st.warning("Aucune phase pour cette opération")
         except Exception as e:
             st.error(f"Erreur génération carte mentale : {str(e)}")
     
@@ -795,12 +791,12 @@ def render_timeline_tab(operation_id):
                 # Préparation des données pour Gantt
                 gantt_data = []
                 for phase in phases:
-                    if phase['date_debut_prevue'] and phase['date_fin_prevue']:
+                    if phase.get('date_debut_prevue') and phase.get('date_fin_prevue'):
                         gantt_data.append({
-                            'Task': phase['sous_phase'],
+                            'Task': phase.get('sous_phase', 'Phase'),
                             'Start': phase['date_debut_prevue'],
                             'Finish': phase['date_fin_prevue'],
-                            'Resource': phase['responsable_principal'] or 'Non défini'
+                            'Resource': phase.get('responsable_principal', 'Non défini')
                         })
                 
                 if gantt_data:
@@ -828,22 +824,33 @@ def render_timeline_tab(operation_id):
     st.subheader("🚨 Alertes actives")
     
     try:
-        alertes = utils.check_alerts(operation_id, db)
-        if alertes:
-            for alerte in alertes:
+        phases = db.get_phases_by_operation(operation_id)
+        alertes_detectees = []
+        
+        for phase in phases:
+            if not phase.get('est_validee', False):
+                duree_max = phase.get('duree_maxi_jours', 30)
+                alertes_detectees.append({
+                    'phase': phase.get('sous_phase', 'Phase'),
+                    'message': f"Phase non validée - Durée max: {duree_max} jours",
+                    'niveau': 2
+                })
+        
+        if alertes_detectees:
+            for alerte in alertes_detectees[:3]:  # Top 3
                 niveau_couleur = {
                     1: "#d4edda",  # Vert
                     2: "#d1ecf1",  # Bleu
                     3: "#fff3cd",  # Jaune
                     4: "#f8d7da",  # Orange
                     5: "#f5c6cb"   # Rouge
-                }.get(alerte['niveau_urgence'], "#ffffff")
+                }.get(alerte['niveau'], "#ffffff")
                 
                 st.markdown(f"""
                 <div style="background-color: {niveau_couleur}; padding: 0.8rem; border-radius: 8px; margin-bottom: 0.5rem;">
                     <div style="display: flex; justify-content: space-between;">
-                        <strong>{alerte['type_alerte'].upper()}</strong>
-                        <span>Urgence: {alerte['niveau_urgence']}/5</span>
+                        <strong>{alerte['phase']}</strong>
+                        <span>Niveau: {alerte['niveau']}/5</span>
                     </div>
                     <p style="margin: 0.5rem 0 0 0;">{alerte['message']}</p>
                 </div>
@@ -882,120 +889,6 @@ def format_phase_duration(duree_mini, duree_maxi):
         return f"Max {duree_maxi} jours"
     else:
         return "Durée non définie"
-
-def export_operation_excel(operation_id):
-    """Exporte une opération vers Excel"""
-    try:
-        db = st.session_state.db
-        
-        # Récupération des données
-        operation = db.get_operation_detail(operation_id)
-        phases = db.get_phases_by_operation(operation_id)
-        journal = db.get_journal_by_operation(operation_id)
-        finances = db.get_finances_by_operation(operation_id)
-        
-        # Création du fichier Excel
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            
-            # Feuille opération
-            df_operation = pd.DataFrame([operation])
-            df_operation.to_excel(writer, sheet_name='Opération', index=False)
-            
-            # Feuille phases
-            if phases:
-                df_phases = pd.DataFrame(phases)
-                df_phases.to_excel(writer, sheet_name='Phases', index=False)
-            
-            # Feuille journal
-            if journal:
-                df_journal = pd.DataFrame(journal)
-                df_journal.to_excel(writer, sheet_name='Journal', index=False)
-            
-            # Feuille finances
-            if finances:
-                df_finances = pd.DataFrame(finances)
-                df_finances.to_excel(writer, sheet_name='Finances', index=False)
-        
-        output.seek(0)
-        return output.getvalue()
-        
-    except Exception as e:
-        st.error(f"Erreur export Excel : {str(e)}")
-        return None
-
-# Interface d'administration (bonus)
-def page_administration():
-    """Page d'administration pour gérer les paramètres"""
-    
-    st.markdown('<h1 class="main-header">⚙️ Administration</h1>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3 = st.tabs(["Intervenants", "Paramètres", "Base de données"])
-    
-    with tab1:
-        st.subheader("👥 Gestion des intervenants")
-        
-        # ACO
-        st.write("**Chargés d'opération (ACO) :**")
-        acos_actuels = config.INTERVENANTS.get('ACO', [])
-        
-        for i, aco in enumerate(acos_actuels):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"• {aco}")
-            with col2:
-                if st.button("❌", key=f"del_aco_{i}"):
-                    # Logique de suppression
-                    pass
-        
-        nouveau_aco = st.text_input("Ajouter un ACO")
-        if st.button("Ajouter ACO") and nouveau_aco:
-            # Logique d'ajout
-            st.success(f"ACO {nouveau_aco} ajouté")
-    
-    with tab2:
-        st.subheader("⚙️ Paramètres généraux")
-        
-        # Paramètres de durées par défaut
-        st.write("**Durées par défaut (jours) :**")
-        
-        duree_phase_courte = st.number_input("Phase courte", value=7, min_value=1)
-        duree_phase_moyenne = st.number_input("Phase moyenne", value=21, min_value=1)
-        duree_phase_longue = st.number_input("Phase longue", value=60, min_value=1)
-        
-        if st.button("Sauvegarder paramètres"):
-            st.success("Paramètres sauvegardés")
-    
-    with tab3:
-        st.subheader("🗄️ Gestion base de données")
-        
-        db = st.session_state.db
-        
-        # Statistiques
-        operations = db.get_operations()
-        st.metric("Nombre d'opérations", len(operations) if operations else 0)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📥 Exporter toutes les données"):
-                # Logique d'export global
-                st.success("Export réalisé")
-        
-        with col2:
-            if st.button("🔄 Sauvegarder la base"):
-                # Logique de backup
-                st.success("Sauvegarde réalisée")
-        
-        # Zone dangereuse
-        st.markdown("---")
-        st.subheader("⚠️ Zone dangereuse")
-        
-        if st.checkbox("Activer mode danger"):
-            if st.button("🗑️ Vider toute la base", type="secondary"):
-                if st.button("⚠️ CONFIRMER LA SUPPRESSION"):
-                    # Logique de remise à zéro
-                    st.error("Base de données vidée")
 
 if __name__ == "__main__":
     main()
