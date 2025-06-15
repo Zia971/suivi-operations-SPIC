@@ -406,7 +406,8 @@ def render_phases_tab(operation_id):
             est_validee = st.checkbox("", value=phase['est_validee'], key=f"phase_{phase['id']}")
         
         with col2:
-            st.write(f"**{phase['sous_phase']}**")
+            st.write(f"**{phase.get('sous_phase', 'Phase sans nom')}**")
+st.caption(f"Phase: {phase.get('phase_principale', 'N/A')}")
             if phase['commentaire']:
                 st.caption(phase['commentaire'])
         
