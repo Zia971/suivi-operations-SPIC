@@ -315,9 +315,9 @@ def page_nouvelle_operation():
                     st.info("Les phases ont été automatiquement générées selon le type d'opération.")
                     
                     # Option pour aller directement au détail
-                    if st.button("Voir le détail de l'opération"):
-                        st.session_state.operation_selectionnee = operation_id
-                        st.rerun()
+                    #if st.button("Voir le détail de l'opération"):
+                        #st.session_state.operation_selectionnee = operation_id
+                        #st.rerun()
                         
                 except Exception as e:
                     st.error(f"Erreur lors de la création : {str(e)}")
