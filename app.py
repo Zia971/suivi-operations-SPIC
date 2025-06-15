@@ -403,38 +403,79 @@ def render_phases_tab(operation_id):
         col1, col2, col3, col4, col5 = st.columns([1, 3, 2, 2, 2])
         
         with col1:
-            est_validee = st.checkbox("", value=phase['est_validee'], key=f"phase_{phase['id']}")
+            est_validee = st.checkbox("", value=phase.get('est_validee', False), key=f"phase_{phase['id']}")
         
         with col2:
             st.write(f"**{phase.get('sous_phase', 'Phase sans nom')}**")
-st.caption(f"Phase: {phase.get('phase_principale', 'N/A')}")
             if phase.get('commentaire'):
                 st.caption(phase.get('commentaire', ''))
         
         with col3:
             date_debut = st.date_input(
                 "Début", 
-                value=datetime.strptime(phase['date_debut_prevue'], '%Y-%m-%d').date() if phase['date_debut_prevue'] else None,
+                value=None,
                 key=f"debut_{phase['id']}"
             )
         
         with col4:
             date_fin = st.date_input(
                 "Fin", 
-                value=datetime.strptime(phase['date_fin_prevue'], '%Y-%m-%d').date() if phase['date_fin_prevue'] else None,
+                value=None,
                 key=f"fin_{phase['id']}"
             )
         
-        with col5:
-            # Couleur selon validation - VERSION CORRIGÉE
+       with col5:
+            # Couleur selon validation et dates
             if est_validee:
-                couleur = "🟢"
-            elif date_fin and datetime.now().date() > date_fin:
-                couleur = "🔴"
+                couleur = "🟢"  # Vert - Validée
+            elif date_fin and date_fin < datetime.now().date():
+                couleur = "🔴"  # Rouge - En retard
+            elif date_fin and (date_fin - datetime.now().date()).days <= 7:
+                couleur = "🟠"  # Orange - Échéance proche
             else:
-                couleur = "🟡"
+                couleur = "🟡"  # Jaune - En cours
             
             st.write(couleur)
+        
+        # Stockage des modifications
+        if est_validee != phase.get('est_validee', False):
+            phases_modifiees.append({
+                'id': phase['id'],
+                'est_validee': est_validee,
+                'date_debut_prevue': str(date_debut) if date_debut else None,
+                'date_fin_prevue': str(date_fin) if date_fin else None
+            })
+    
+    # Bouton de sauvegarde
+    if phases_modifiees:
+        if st.button("💾 Enregistrer les modifications", type="primary"):
+            try:
+                for phase_modif in phases_modifiees:
+                    db.update_phase(
+                        phase_id=phase_modif['id'],
+                        est_validee=phase_modif['est_validee'],
+                        date_debut_prevue=phase_modif['date_debut_prevue'],
+                        date_fin_prevue=phase_modif['date_fin_prevue']
+                    )
+                
+                # Mise à jour du pourcentage d'avancement
+                phases_actualisees = db.get_phases_by_operation(operation_id)
+                nouveau_pourcentage = utils.calculate_progress(phases_actualisees)
+                db.update_operation_progress(operation_id, nouveau_pourcentage)
+                
+                # Ajout dans le journal
+                db.add_journal_entry(
+                    operation_id=operation_id,
+                    auteur="Système",
+                    type_action="MODIFICATION",
+                    contenu=f"Mise à jour de {len(phases_modifiees)} phase(s)"
+                )
+                
+                st.success("✅ Modifications sauvegardées !")
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"Erreur lors de la sauvegarde : {str(e)}")
         
         # Stockage des modifications
         if (est_validee != phase['est_validee'] or 
