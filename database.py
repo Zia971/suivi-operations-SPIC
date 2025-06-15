@@ -177,7 +177,38 @@ class DatabaseManager:
             operation_id = cursor.lastrowid
             
             # Génération automatique des phases selon le type
-            self._generate_phases_for_operation(operation_id, type_operation, conn)
+            self.
+def _generate_phases_for_operation(self, operation_id: int, type_operation: str, conn):
+    """Génère les phases automatiquement selon le type d'opération"""
+    
+    try:
+        phases_referentiel = config.get_phases_for_type(type_operation)
+        print(f"DEBUG: Phases trouvées pour {type_operation}: {len(phases_referentiel)}")
+        
+        for ordre, phase in enumerate(phases_referentiel, 1):
+            conn.execute("""
+                INSERT INTO phases (
+                    operation_id, phase_principale, sous_phase, ordre_phase,
+                    duree_mini_jours, duree_maxi_jours, responsable_principal,
+                    responsable_validation, est_validee
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                operation_id,
+                phase.get('phase_principale', ''),
+                phase.get('sous_phase', ''),
+                ordre,
+                phase.get('duree_mini_jours', 30),
+                phase.get('duree_maxi_jours', 60),
+                phase.get('responsable_principal', ''),
+                phase.get('responsable_validation', ''),
+                False
+            ))
+        
+        print(f"✅ {len(phases_referentiel)} phases générées pour l'opération {operation_id}")
+        
+    except Exception as e:
+        print(f"❌ Erreur génération phases : {e}")
+        raise
             
             # Ajout entrée journal
             conn.execute("""
