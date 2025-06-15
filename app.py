@@ -256,7 +256,7 @@ def page_charge():
                     # Bouton pour accéder au détail
                     if st.button(f"Voir détail", key=f"detail_{op['id']}"):
                         st.session_state.operation_selectionnee = op['id']
-                        st.rerun()
+                        st.experimental_rerun()
 
 def page_nouvelle_operation():
     """Page de création d'une nouvelle opération"""
