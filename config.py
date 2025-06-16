@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Configuration centralisée pour l'application SPIC
+Configuration centralisée pour l'application SPIC - VERSION AMÉLIORÉE
 Gestion des opérations immobilières (OPP, VEFA, AMO, MANDAT)
+Intégration gestion dynamique ACO + logique alertes
 """
 
 from typing import Dict, List, Any
 import datetime
+import json
 
 # ============================================================================
 # TYPES D'OPÉRATIONS
@@ -19,57 +21,75 @@ TYPES_OPERATIONS = [
 ]
 
 # ============================================================================
-# STATUTS GLOBAUX DYNAMIQUES
+# STATUTS GLOBAUX DYNAMIQUES AVEC LOGIQUE AMÉLIORÉE
 # ============================================================================
 
 STATUTS_GLOBAUX = {
     "🟡 À l'étude": {
         "couleur": "#fbbf24",
+        "couleur_bg": "#fff3cd",
         "description": "Montage, programmation, études",
+        "seuil_min": 0,
+        "seuil_max": 19,
         "phases_concernees": ["MONTAGE", "ÉTUDES", "AUTORISATIONS", "FINANCEMENT"]
     },
     "🛠️ En consultation": {
-        "couleur": "#f97316",
+        "couleur": "#f97316", 
+        "couleur_bg": "#d1ecf1",
         "description": "Lancement consultation, relances, CAO",
+        "seuil_min": 20,
+        "seuil_max": 39,
         "phases_concernees": ["CONSULTATION"]
     },
     "📋 Marché attribué": {
         "couleur": "#3b82f6",
+        "couleur_bg": "#d4edda",
         "description": "Attribution, OS, signature marché",
-        "phases_concernees": ["ATTRIBUTION"]
+        "seuil_min": 40,
+        "seuil_max": 59,
+        "phases_concernees": ["ATTRIBUTION", "PASSATION"]
     },
     "🚧 En travaux": {
         "couleur": "#8b5cf6",
+        "couleur_bg": "#f8d7da",
         "description": "Suivi chantier, réunions, alertes",
+        "seuil_min": 60,
+        "seuil_max": 79,
         "phases_concernees": ["TRAVAUX", "SUIVI_CHANTIER"]
     },
     "📦 Livré (non soldé)": {
         "couleur": "#06b6d4",
+        "couleur_bg": "#d4edda",
         "description": "GPA, DOE, levées réserves",
+        "seuil_min": 80,
+        "seuil_max": 99,
         "phases_concernees": ["RÉCEPTION", "LIVRAISON"]
-    },
-    "📄 En GPA": {
-        "couleur": "#10b981",
-        "description": "Suivi GPA, relances entreprise",
-        "phases_concernees": ["GPA"]
     },
     "✅ Clôturé (soldé)": {
         "couleur": "#22c55e",
+        "couleur_bg": "#d4edda",
         "description": "Clôture technique + financière",
+        "seuil_min": 100,
+        "seuil_max": 100,
         "phases_concernees": ["CLÔTURE"]
     },
     "🔴 Bloqué": {
         "couleur": "#ef4444",
-        "description": "Blocage temporaire",
-        "phases_concernees": ["*"]  # Peut s'appliquer à toute phase
+        "couleur_bg": "#f5c6cb",
+        "description": "Blocage temporaire - priorité absolue",
+        "seuil_min": 0,
+        "seuil_max": 100,
+        "phases_concernees": ["*"],
+        "priorite_risque": 10
     }
 }
 
 # ============================================================================
-# INTERVENANTS PAR RÔLE
+# GESTION DYNAMIQUE DES INTERVENANTS
 # ============================================================================
 
-INTERVENANTS = {
+# ACO de base - peuvent être modifiés dynamiquement
+INTERVENANTS_BASE = {
     "ACO": [
         "MSL", "MARIO M", "MARLENE SL", "AA", "IF", 
         "WR", "DM", "Merezia CALVADOS", "MORINO ROS"
@@ -92,6 +112,46 @@ INTERVENANTS = {
     ]
 }
 
+# Variable dynamique pour les ACO (chargée depuis la base ou fichier)
+INTERVENANTS = INTERVENANTS_BASE.copy()
+
+# ============================================================================
+# TYPES D'ALERTES ET BLOCAGES
+# ============================================================================
+
+TYPES_ALERTES = {
+    "BLOCAGE": {
+        "couleur": "#dc2626",
+        "icone": "🔴",
+        "priorite": 5,
+        "description": "Blocage critique - action immédiate"
+    },
+    "RETARD": {
+        "couleur": "#f59e0b", 
+        "icone": "⚠️",
+        "priorite": 4,
+        "description": "Retard sur planning"
+    },
+    "ATTENTION": {
+        "couleur": "#eab308",
+        "icone": "⚡",
+        "priorite": 3,
+        "description": "Point d'attention"
+    },
+    "INFO": {
+        "couleur": "#3b82f6",
+        "icone": "ℹ️",
+        "priorite": 2,
+        "description": "Information importante"
+    },
+    "VALIDATION": {
+        "couleur": "#10b981",
+        "icone": "✅",
+        "priorite": 1,
+        "description": "Validation obtenue"
+    }
+}
+
 # ============================================================================
 # RÉFÉRENTIELS PHASES COMPLETS PAR TYPE D'OPÉRATION
 # ============================================================================
@@ -108,7 +168,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "Direction SPIC",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si pas validé après 2 semaines"
+            "alerte_automatique": "Si pas validé après 2 semaines",
+            "documents_requis": "Fiche opportunité, étude de marché",
+            "criteres_validation": "Faisabilité confirmée, budget estimatif"
         },
         {
             "phase_principale": "1. MONTAGE",
@@ -119,7 +181,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Programmiste",
             "responsable_validation": "ACO + Direction",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si pas validé après 4 semaines"
+            "alerte_automatique": "Si pas validé après 4 semaines",
+            "documents_requis": "Programme détaillé, mixité sociale",
+            "criteres_validation": "Programme approuvé par direction"
         },
         {
             "phase_principale": "1. MONTAGE",
@@ -130,7 +194,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Service Foncier",
             "responsable_validation": "Direction SPIC",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si négociation bloquée + 8 semaines"
+            "alerte_automatique": "Si négociation bloquée + 8 semaines",
+            "documents_requis": "Compromis ou promesse de vente",
+            "criteres_validation": "Acte notarié ou réservation sécurisée"
         },
         
         # ======================= PHASE 2 : ÉTUDES =======================
@@ -143,7 +209,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte",
             "responsable_validation": "ACO + MOA",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si pas de livraison après 4 semaines"
+            "alerte_automatique": "Si pas de livraison après 4 semaines",
+            "documents_requis": "Plans masse, élévations, coupes",
+            "criteres_validation": "Plans ESQ approuvés et signés"
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -154,7 +222,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + BET",
             "responsable_validation": "ACO + Direction",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si retard sur planning + 6 semaines"
+            "alerte_automatique": "Si retard sur planning + 6 semaines",
+            "documents_requis": "Plans APS, note technique, budget",
+            "criteres_validation": "Validation technique et budgétaire"
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -165,7 +235,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + BET + Économiste",
             "responsable_validation": "ACO + Direction",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si dépassement budget + 8 semaines"
+            "alerte_automatique": "Si dépassement budget + 8 semaines",
+            "documents_requis": "Plans APD, CCTP, métré détaillé",
+            "criteres_validation": "Budget définitif dans enveloppe"
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -176,10 +248,12 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + BET complet",
             "responsable_validation": "ACO + Direction + Financeurs",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si études non finalisées + 12 semaines"
+            "alerte_automatique": "Si études non finalisées + 12 semaines",
+            "documents_requis": "Plans PRO, CCTP définitif, budget final",
+            "criteres_validation": "Dossier complet pour consultation"
         },
         {
-            "phase_principale": "2. ÉTUDES",
+            "phase_principale": "2. ÉTUDES", 
             "sous_phase": "2.5 DCE - Dossier Consultation",
             "ordre": 8,
             "duree_mini_jours": 28,
@@ -187,7 +261,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + Économiste",
             "responsable_validation": "ACO + Gestionnaire marchés",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si DCE incomplet + 6 semaines"
+            "alerte_automatique": "Si DCE incomplet + 6 semaines",
+            "documents_requis": "DCE complet, règlement consultation",
+            "criteres_validation": "DCE validé juridiquement"
         },
         
         # ======================= PHASE 3 : AUTORISATIONS =======================
@@ -200,7 +276,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte",
             "responsable_validation": "Mairie",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si dépôt tardif + 2 semaines"
+            "alerte_automatique": "Si dépôt tardif + 2 semaines",
+            "documents_requis": "Dossier PC complet",
+            "criteres_validation": "Récépissé de dépôt obtenu"
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -211,7 +289,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Mairie + DDT",
             "responsable_validation": "Services instructeurs",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si dépassement délai légal + 2 semaines"
+            "alerte_automatique": "Si dépassement délai légal + 2 semaines",
+            "documents_requis": "Réponses aux observations",
+            "criteres_validation": "PC accordé définitivement"
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -222,7 +302,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Notaire",
             "responsable_validation": "ACO",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si recours déposé"
+            "alerte_automatique": "Si recours déposé",
+            "documents_requis": "Affichage, publications légales",
+            "criteres_validation": "Délai de recours purgé"
         },
         
         # ======================= PHASE 4 : FINANCEMENT =======================
@@ -235,7 +317,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction + ACO",
             "responsable_validation": "Conseil d'Administration",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si validation retardée + 6 semaines"
+            "alerte_automatique": "Si validation retardée + 6 semaines",
+            "documents_requis": "Bilan prévisionnel, plan financement",
+            "criteres_validation": "LBU votée en CA"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -246,7 +330,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction Financière",
             "responsable_validation": "CDC + SPIC",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si négociation bloquée + 8 semaines"
+            "alerte_automatique": "Si négociation bloquée + 8 semaines",
+            "documents_requis": "Dossier de financement complet",
+            "criteres_validation": "Contrat CDC signé"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -257,7 +343,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Direction",
             "responsable_validation": "CAF + Action Logement",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si refus ou retard + 10 semaines"
+            "alerte_automatique": "Si refus ou retard + 10 semaines",
+            "documents_requis": "Dossiers cofinancement",
+            "criteres_validation": "Accords de financement signés"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -268,7 +356,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction Financière",
             "responsable_validation": "Banques + Assureurs",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si garanties insuffisantes + 4 semaines"
+            "alerte_automatique": "Si garanties insuffisantes + 4 semaines",
+            "documents_requis": "Garanties bancaires, assurances",
+            "criteres_validation": "Garanties actées et signées"
         },
         
         # ======================= PHASE 5 : CONSULTATION =======================
@@ -281,7 +371,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Gestionnaire marchés",
             "responsable_validation": "ACO",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si publication retardée + 1 semaine"
+            "alerte_automatique": "Si publication retardée + 1 semaine",
+            "documents_requis": "DCE finalisé, avis de marché",
+            "criteres_validation": "Publication effective"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -292,7 +384,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Gestionnaire marchés",
             "responsable_validation": "Commission d'appel d'offres",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si peu d'offres reçues"
+            "alerte_automatique": "Si peu d'offres reçues",
+            "documents_requis": "Réponses aux questions",
+            "criteres_validation": "Au moins 3 offres recevables"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -303,7 +397,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Économiste + Architecte",
             "responsable_validation": "Commission technique",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si analyse tardive + 3 semaines"
+            "alerte_automatique": "Si analyse tardive + 3 semaines",
+            "documents_requis": "Grilles d'analyse, rapports",
+            "criteres_validation": "Classement des offres validé"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -314,7 +410,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Équipe projet",
             "responsable_validation": "Direction",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si négociation infructueuse"
+            "alerte_automatique": "Si négociation infructueuse",
+            "documents_requis": "PV de négociation",
+            "criteres_validation": "Offre finale dans budget"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -325,7 +423,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Président CAO",
             "responsable_validation": "CAO",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si décision négative ou report"
+            "alerte_automatique": "Si décision négative ou report",
+            "documents_requis": "Rapport d'analyse complet",
+            "criteres_validation": "Attribution votée en CAO"
         },
         
         # ======================= PHASE 6 : ATTRIBUTION =======================
@@ -338,7 +438,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Gestionnaire marchés",
             "responsable_validation": "Entreprise attributaire",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si refus entreprise"
+            "alerte_automatique": "Si refus entreprise",
+            "documents_requis": "Lettre de notification",
+            "criteres_validation": "Acceptation entreprise"
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -349,7 +451,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprise + ACO",
             "responsable_validation": "ACO + Services juridiques",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si dossier incomplet + 4 semaines"
+            "alerte_automatique": "Si dossier incomplet + 4 semaines",
+            "documents_requis": "Pièces administratives complètes",
+            "criteres_validation": "Dossier juridiquement complet"
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -360,7 +464,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction SPIC",
             "responsable_validation": "Direction + Entreprise",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si signature retardée + 2 semaines"
+            "alerte_automatique": "Si signature retardée + 2 semaines",
+            "documents_requis": "Marché finalisé et visé",
+            "criteres_validation": "Signatures effectives"
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -371,7 +477,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "ACO + Entreprise",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si délai OS dépassé"
+            "alerte_automatique": "Si délai OS dépassé",
+            "documents_requis": "OS signé et notifié",
+            "criteres_validation": "Démarrage effectif des travaux"
         },
         
         # ======================= PHASE 7 : TRAVAUX =======================
@@ -384,7 +492,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprise",
             "responsable_validation": "ACO + Maîtrise d'œuvre",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retard ouverture"
+            "alerte_automatique": "Si retard ouverture",
+            "documents_requis": "Déclaration ouverture chantier",
+            "criteres_validation": "Chantier effectivement ouvert"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -395,7 +505,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprise gros œuvre",
             "responsable_validation": "Maîtrise d'œuvre + Contrôleur technique",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retard planning + 2 semaines"
+            "alerte_automatique": "Si retard planning + 2 semaines",
+            "documents_requis": "PV fondations, contrôles béton",
+            "criteres_validation": "Fondations conformes et réceptionnées"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -406,7 +518,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprise gros œuvre",
             "responsable_validation": "Maîtrise d'œuvre",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retard hors d'eau + 3 semaines"
+            "alerte_automatique": "Si retard hors d'eau + 3 semaines",
+            "documents_requis": "PV hors d'eau",
+            "criteres_validation": "Étanchéité assurée"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -417,7 +531,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprises tous corps d'état",
             "responsable_validation": "Maîtrise d'œuvre",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si coordination défaillante"
+            "alerte_automatique": "Si coordination défaillante",
+            "documents_requis": "Planning coordonné, PV étapes",
+            "criteres_validation": "Clos couvert achevé"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -428,7 +544,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprises spécialisées",
             "responsable_validation": "Maîtrise d'œuvre + ACO",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si finitions non conformes"
+            "alerte_automatique": "Si finitions non conformes",
+            "documents_requis": "Fiches de contrôle qualité",
+            "criteres_validation": "Finitions conformes au marché"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -439,7 +557,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Maîtrise d'œuvre",
             "responsable_validation": "Toutes parties prenantes",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si absence répétée entreprises"
+            "alerte_automatique": "Si absence répétée entreprises",
+            "documents_requis": "PV réunions hebdomadaires",
+            "criteres_validation": "Suivi régulier et traçable"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -450,7 +570,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprise générale",
             "responsable_validation": "Maîtrise d'œuvre",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si DACT non déclarée"
+            "alerte_automatique": "Si DACT non déclarée",
+            "documents_requis": "Déclaration achèvement",
+            "criteres_validation": "Travaux réellement achevés"
         },
         
         # ======================= PHASE 8 : RÉCEPTION =======================
@@ -463,7 +585,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Maîtrise d'œuvre + ACO",
             "responsable_validation": "Équipe SPIC",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réserves importantes"
+            "alerte_automatique": "Si réserves importantes",
+            "documents_requis": "Grille de pré-réception",
+            "criteres_validation": "Réserves mineures uniquement"
         },
         {
             "phase_principale": "8. RÉCEPTION",
@@ -474,86 +598,102 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction SPIC",
             "responsable_validation": "Direction + Maîtrise d'œuvre",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réception refusée"
+            "alerte_automatique": "Si réception refusée",
+            "documents_requis": "PV de réception signé",
+            "criteres_validation": "Réception actée sans réserve majeure"
         },
         {
             "phase_principale": "8. RÉCEPTION",
-            "sous_phase": "8.3 Début GPA - Garantie Parfait Achèvement",
+            "sous_phase": "8.3 DOE - Dossier Ouvrages Exécutés",
             "ordre": 34,
-            "duree_mini_jours": 1,
-            "duree_maxi_jours": 7,
-            "responsable_principal": "Entreprises",
-            "responsable_validation": "SPIC",
-            "statut_global_associe": "📄 En GPA",
-            "alerte_automatique": "Si entreprises non joignables"
-        },
-        {
-            "phase_principale": "8. RÉCEPTION",
-            "sous_phase": "8.4 DOE - Dossier Ouvrages Exécutés",
-            "ordre": 35,
             "duree_mini_jours": 30,
             "duree_maxi_jours": 90,
             "responsable_principal": "Entreprises + Maîtrise d'œuvre",
             "responsable_validation": "ACO + Services techniques",
-            "statut_global_associe": "📄 En GPA",
-            "alerte_automatique": "Si DOE incomplet + 6 semaines"
+            "statut_global_associe": "📦 Livré (non soldé)",
+            "alerte_automatique": "Si DOE incomplet + 6 semaines",
+            "documents_requis": "Plans conformes, notices équipements",
+            "criteres_validation": "DOE complet et exploitable"
         },
         {
             "phase_principale": "8. RÉCEPTION",
-            "sous_phase": "8.5 DIUO - Dossier Intervention Ultérieure",
-            "ordre": 36,
+            "sous_phase": "8.4 DIUO - Dossier Intervention Ultérieure",
+            "ordre": 35,
             "duree_mini_jours": 21,
             "duree_maxi_jours": 60,
             "responsable_principal": "Coordonnateur SPS",
             "responsable_validation": "ACO + Service maintenance",
-            "statut_global_associe": "📄 En GPA",
-            "alerte_automatique": "Si DIUO manquant + 4 semaines"
+            "statut_global_associe": "📦 Livré (non soldé)",
+            "alerte_automatique": "Si DIUO manquant + 4 semaines",
+            "documents_requis": "DIUO complet et à jour",
+            "criteres_validation": "Sécurité maintenance assurée"
         },
         {
             "phase_principale": "8. RÉCEPTION",
-            "sous_phase": "8.6 Levée réserves GPA",
-            "ordre": 37,
-            "duree_mini_jours": 30,
-            "duree_maxi_jours": 365,
+            "sous_phase": "8.5 Début GPA - Garantie Parfait Achèvement",
+            "ordre": 36,
+            "duree_mini_jours": 1,
+            "duree_maxi_jours": 7,
             "responsable_principal": "Entreprises",
-            "responsable_validation": "ACO + Maîtrise d'œuvre",
-            "statut_global_associe": "📄 En GPA",
-            "alerte_automatique": "Si réserves non levées + 2 mois"
+            "responsable_validation": "SPIC",
+            "statut_global_associe": "📦 Livré (non soldé)",
+            "alerte_automatique": "Si entreprises non joignables",
+            "documents_requis": "Attestations GPA",
+            "criteres_validation": "GPA effective et notifiée"
         },
         
         # ======================= PHASE 9 : LIVRAISON =======================
         {
             "phase_principale": "9. LIVRAISON",
             "sous_phase": "9.1 Livraison aux locataires",
-            "ordre": 38,
+            "ordre": 37,
             "duree_mini_jours": 14,
             "duree_maxi_jours": 60,
             "responsable_principal": "Service gestion locative",
             "responsable_validation": "Locataires + SPIC",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si livraison retardée"
+            "alerte_automatique": "Si livraison retardée",
+            "documents_requis": "États des lieux, remise clés",
+            "criteres_validation": "Tous logements livrés"
         },
         {
             "phase_principale": "9. LIVRAISON",
             "sous_phase": "9.2 Mise en gestion locative",
-            "ordre": 39,
+            "ordre": 38,
             "duree_mini_jours": 7,
             "duree_maxi_jours": 30,
             "responsable_principal": "Service gestion",
             "responsable_validation": "Direction",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si mise en gestion retardée"
+            "alerte_automatique": "Si mise en gestion retardée",
+            "documents_requis": "Fiches locataires, baux signés",
+            "criteres_validation": "Gestion opérationnelle effective"
         },
         {
             "phase_principale": "9. LIVRAISON",
             "sous_phase": "9.3 Bilan de commercialisation",
-            "ordre": 40,
+            "ordre": 39,
             "duree_mini_jours": 14,
             "duree_maxi_jours": 30,
             "responsable_principal": "Service commercial + ACO",
             "responsable_validation": "Direction",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si logements vacants"
+            "alerte_automatique": "Si logements vacants",
+            "documents_requis": "Tableau de commercialisation",
+            "criteres_validation": "Taux occupation satisfaisant"
+        },
+        {
+            "phase_principale": "9. LIVRAISON",
+            "sous_phase": "9.4 Levée réserves GPA",
+            "ordre": 40,
+            "duree_mini_jours": 30,
+            "duree_maxi_jours": 365,
+            "responsable_principal": "Entreprises",
+            "responsable_validation": "ACO + Maîtrise d'œuvre",
+            "statut_global_associe": "📦 Livré (non soldé)",
+            "alerte_automatique": "Si réserves non levées + 2 mois",
+            "documents_requis": "PV levées de réserves",
+            "criteres_validation": "Toutes réserves levées"
         },
         
         # ======================= PHASE 10 : CLÔTURE =======================
@@ -566,7 +706,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprises",
             "responsable_validation": "SPIC",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si réclamations post-GPA"
+            "alerte_automatique": "Si réclamations post-GPA",
+            "documents_requis": "Bilan GPA, mainlevées",
+            "criteres_validation": "Année GPA sans problème majeur"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -577,7 +719,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Services administratifs",
             "responsable_validation": "Direction",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si documents manquants"
+            "alerte_automatique": "Si documents manquants",
+            "documents_requis": "Dossier complet archivé",
+            "criteres_validation": "Tous documents finalisés"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -588,7 +732,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction financière",
             "responsable_validation": "Conseil d'administration",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si écarts budgétaires"
+            "alerte_automatique": "Si écarts budgétaires",
+            "documents_requis": "Bilan financier final",
+            "criteres_validation": "Comptes équilibrés et arrêtés"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -599,7 +745,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction",
             "responsable_validation": "Conseil d'administration",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si solde non finalisé"
+            "alerte_automatique": "Si solde non finalisé",
+            "documents_requis": "Solde validé et voté",
+            "criteres_validation": "Opération définitivement soldée"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -610,11 +758,13 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Services généraux",
             "responsable_validation": "Direction",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si archivage incomplet"
+            "alerte_automatique": "Si archivage incomplet",
+            "documents_requis": "Dossier archivé physique + numérique",
+            "criteres_validation": "Archivage conforme et accessible"
         }
     ],
-
- # ======================= RÉFÉRENTIEL VEFA =======================
+    
+    # ======================= RÉFÉRENTIEL VEFA COMPLET =======================
     "VEFA": [
         {
             "phase_principale": "1. PROSPECTION",
@@ -723,7 +873,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 30,
             "responsable_principal": "Promoteur",
             "responsable_validation": "Promoteur",
-            "statut_global_associe": "🚧 Travaux promoteur",
+            "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si démarrage retardé"
         },
         {
@@ -734,7 +884,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 14,
             "responsable_principal": "ACO",
             "responsable_validation": "ACO",
-            "statut_global_associe": "🚧 Travaux promoteur",
+            "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si retard constaté planning"
         },
         {
@@ -745,7 +895,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 30,
             "responsable_principal": "ACO + Expert externe",
             "responsable_validation": "SPIC",
-            "statut_global_associe": "🚧 Travaux promoteur",
+            "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si non-conformités détectées"
         },
         {
@@ -756,7 +906,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 30,
             "responsable_principal": "Promoteur + SPIC",
             "responsable_validation": "Toutes parties",
-            "statut_global_associe": "🚧 Travaux promoteur",
+            "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si absence réunions"
         },
         {
@@ -767,7 +917,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 28,
             "responsable_principal": "ACO",
             "responsable_validation": "Promoteur",
-            "statut_global_associe": "🚧 Travaux promoteur",
+            "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si non-conformités non traitées"
         },
         {
@@ -811,7 +961,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 3650,
             "responsable_principal": "Promoteur",
             "responsable_validation": "Assureurs",
-            "statut_global_associe": "📄 En GPA",
+            "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si défaut garantie"
         },
         {
@@ -822,7 +972,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 60,
             "responsable_principal": "Service maintenance",
             "responsable_validation": "Direction",
-            "statut_global_associe": "📄 En GPA",
+            "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si sinistres non couverts"
         },
         {
@@ -860,7 +1010,7 @@ REFERENTIELS_PHASES = {
         }
     ],
     
-    # ======================= RÉFÉRENTIEL AMO =======================
+    # ======================= RÉFÉRENTIEL AMO COMPLET =======================
     "AMO": [
         {
             "phase_principale": "1. ASSISTANCE ÉTUDES",
@@ -1057,7 +1207,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 365,
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
-            "statut_global_associe": "📄 En GPA",
+            "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si réserves non levées + 2 mois"
         },
         {
@@ -1068,7 +1218,7 @@ REFERENTIELS_PHASES = {
             "duree_maxi_jours": 30,
             "responsable_principal": "AMO",
             "responsable_validation": "MOA + Assureurs",
-            "statut_global_associe": "📄 En GPA",
+            "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si sinistre non traité"
         },
         {
@@ -1106,7 +1256,7 @@ REFERENTIELS_PHASES = {
         }
     ],
     
-    # ======================= RÉFÉRENTIEL MANDAT =======================
+    # ======================= RÉFÉRENTIEL MANDAT COMPLET =======================
     "MANDAT": [
         {
             "phase_principale": "1. CONVENTION MANDAT",
@@ -1382,16 +1532,16 @@ REFERENTIELS_PHASES = {
 STATUTS_PAR_TYPE = {
     "OPP": [
         "🟡 À l'étude", "🛠️ En consultation", "📋 Marché attribué",
-        "🚧 En travaux", "📦 Livré (non soldé)", "📄 En GPA",
+        "🚧 En travaux", "📦 Livré (non soldé)",
         "✅ Clôturé (soldé)", "🔴 Bloqué"
     ],
     "VEFA": [
-        "🟡 À l'étude", "🚧 Travaux promoteur", "📦 Livré (non soldé)",
-        "📄 En GPA", "✅ Clôturé (soldé)", "🔴 Bloqué"
+        "🟡 À l'étude", "🚧 En travaux", "📦 Livré (non soldé)",
+        "✅ Clôturé (soldé)", "🔴 Bloqué"
     ],
     "AMO": [
         "🟡 À l'étude", "🛠️ En consultation", "📋 Marché attribué",
-        "🚧 En travaux", "📦 Livré (non soldé)", "📄 En GPA",
+        "🚧 En travaux", "📦 Livré (non soldé)",
         "✅ Clôturé (soldé)", "🔴 Bloqué"
     ],
     "MANDAT": [
@@ -1402,7 +1552,7 @@ STATUTS_PAR_TYPE = {
 }
 
 # ============================================================================
-# FONCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES AVANCÉES
 # ============================================================================
 
 def get_phases_for_type(type_operation: str) -> List[Dict]:
@@ -1413,29 +1563,41 @@ def get_statuts_valides(type_operation: str) -> List[str]:
     """Récupère les statuts valides pour un type d'opération"""
     return STATUTS_PAR_TYPE.get(type_operation, list(STATUTS_GLOBAUX.keys()))
 
-def get_phase_by_order(type_operation: str, ordre: int) -> Dict:
-    """Récupère une phase spécifique par son ordre"""
-    phases = get_phases_for_type(type_operation)
-    for phase in phases:
-        if phase.get('ordre') == ordre:
-            return phase
-    return {}
-
-def get_next_phases(type_operation: str, current_ordre: int, nb_phases: int = 3) -> List[Dict]:
-    """Récupère les prochaines phases à partir d'un ordre donné"""
-    phases = get_phases_for_type(type_operation)
-    next_phases = []
+def calculate_status_from_phases(phases: List[Dict], type_operation: str) -> str:
+    """Calcule le statut automatique basé sur l'avancement des phases"""
     
-    for phase in phases:
-        if phase.get('ordre', 0) > current_ordre:
-            next_phases.append(phase)
-            if len(next_phases) >= nb_phases:
-                break
+    if not phases:
+        return "🟡 À l'étude"
     
-    return next_phases
+    # Vérifier s'il y a des blocages actifs
+    for phase in phases:
+        if phase.get('blocage_actif', False):
+            return "🔴 Bloqué"
+    
+    # Calcul du pourcentage d'avancement
+    total_phases = len(phases)
+    phases_validees = sum(1 for phase in phases if phase.get('est_validee', False))
+    pourcentage = (phases_validees / total_phases) * 100
+    
+    # Logique de statut selon l'avancement
+    for statut, info in STATUTS_GLOBAUX.items():
+        if statut == "🔴 Bloqué":
+            continue
+        
+        seuil_min = info.get('seuil_min', 0)
+        seuil_max = info.get('seuil_max', 100)
+        
+        if seuil_min <= pourcentage <= seuil_max:
+            return statut
+    
+    return "🟡 À l'étude"
 
-def get_phase_color(est_validee: bool, date_fin_prevue: str = None) -> str:
+def get_phase_color(est_validee: bool, date_fin_prevue: str = None, blocage_actif: bool = False) -> str:
     """Retourne la couleur d'une phase selon son état"""
+    
+    if blocage_actif:
+        return "🔴"  # Rouge - Bloquée
+    
     if est_validee:
         return "🟢"  # Vert - Validée
     
@@ -1454,27 +1616,88 @@ def get_phase_color(est_validee: bool, date_fin_prevue: str = None) -> str:
     
     return "🟡"  # Jaune - En cours
 
-def calculate_phase_progress(phases: List[Dict]) -> float:
-    """Calcule le pourcentage d'avancement basé sur les phases validées"""
-    if not phases:
+def calculate_risk_score(operation: Dict, phases: List[Dict], alertes: List[Dict] = None) -> float:
+    """Calcule le score de risque d'une opération"""
+    
+    if not operation:
         return 0.0
     
-    total_phases = len(phases)
-    phases_validees = sum(1 for phase in phases if phase.get('est_validee', False))
+    score_risque = 0.0
     
-    return round((phases_validees / total_phases) * 100, 1)
-
-def get_current_phase(phases: List[Dict]) -> Dict:
-    """Récupère la phase actuelle (première non validée)"""
-    for phase in sorted(phases, key=lambda x: x.get('ordre', 0)):
-        if not phase.get('est_validee', False):
-            return phase
+    # 1. Score basé sur l'avancement (moins d'avancement = plus de risque)
+    avancement = operation.get('pourcentage_avancement', 0)
+    score_avancement = max(0, (100 - avancement) * 0.3)
     
-    # Si toutes les phases sont validées, retourner la dernière
+    # 2. Score basé sur le statut
+    statut = operation.get('statut_principal', '')
+    if '🔴 Bloqué' in statut:
+        score_statut = 50
+    elif '🚧 En travaux' in statut and avancement < 70:
+        score_statut = 20
+    elif '🛠️ En consultation' in statut and avancement < 30:
+        score_statut = 15
+    else:
+        score_statut = 0
+    
+    # 3. Score basé sur les alertes actives
+    score_alertes = 0
+    if alertes:
+        for alerte in alertes:
+            if not alerte.get('est_traitee', False):
+                score_alertes += TYPES_ALERTES.get(alerte.get('type_alerte', 'INFO'), {}).get('priorite', 1) * 5
+    
+    # 4. Score basé sur les phases en retard
+    score_retard = 0
     if phases:
-        return max(phases, key=lambda x: x.get('ordre', 0))
+        from datetime import datetime
+        today = datetime.now().date()
+        
+        for phase in phases:
+            if not phase.get('est_validee', False) and phase.get('date_fin_prevue'):
+                try:
+                    date_fin = datetime.strptime(phase['date_fin_prevue'], '%Y-%m-%d').date()
+                    if today > date_fin:
+                        score_retard += 5  # 5 points par phase en retard
+                except:
+                    pass
     
-    return {}
+    score_risque = score_avancement + score_statut + score_alertes + score_retard
+    
+    return min(100, score_risque)  # Maximum 100
+
+def add_aco(nom_aco: str) -> bool:
+    """Ajoute un nouveau chargé d'opération"""
+    try:
+        if nom_aco and nom_aco not in INTERVENANTS['ACO']:
+            INTERVENANTS['ACO'].append(nom_aco)
+            # TODO: Sauvegarder en base de données
+            return True
+        return False
+    except Exception:
+        return False
+
+def remove_aco(nom_aco: str) -> bool:
+    """Supprime un chargé d'opération"""
+    try:
+        if nom_aco in INTERVENANTS['ACO']:
+            INTERVENANTS['ACO'].remove(nom_aco)
+            # TODO: Sauvegarder en base de données
+            return True
+        return False
+    except Exception:
+        return False
+
+def update_aco(ancien_nom: str, nouveau_nom: str) -> bool:
+    """Modifie le nom d'un chargé d'opération"""
+    try:
+        if ancien_nom in INTERVENANTS['ACO'] and nouveau_nom:
+            index = INTERVENANTS['ACO'].index(ancien_nom)
+            INTERVENANTS['ACO'][index] = nouveau_nom
+            # TODO: Mettre à jour les opérations existantes + sauvegarder en base
+            return True
+        return False
+    except Exception:
+        return False
 
 def validate_config() -> bool:
     """Valide la cohérence de la configuration"""
@@ -1503,55 +1726,15 @@ def validate_config() -> bool:
         print(f"Erreur validation config: {e}")
         return False
 
-def get_statut_from_phases(phases: List[Dict], type_operation: str) -> str:
-    """Détermine le statut global basé sur l'avancement des phases"""
-    if not phases:
-        return "🟡 À l'étude"
-    
-    # Phase actuelle (première non validée)
-    current_phase = get_current_phase(phases)
-    if not current_phase:
-        return "✅ Clôturé (soldé)"
-    
-    # Mapping des phases vers les statuts
-    phase_to_status = {
-        "MONTAGE": "🟡 À l'étude",
-        "ÉTUDES": "🟡 À l'étude", 
-        "AUTORISATIONS": "🟡 À l'étude",
-        "FINANCEMENT": "🟡 À l'étude",
-        "CONSULTATION": "🛠️ En consultation",
-        "ATTRIBUTION": "📋 Marché attribué",
-        "PASSATION": "📋 Marché attribué",
-        "TRAVAUX": "🚧 En travaux",
-        "SUIVI": "🚧 En travaux",
-        "RÉCEPTION": "📦 Livré (non soldé)",
-        "LIVRAISON": "📦 Livré (non soldé)",
-        "GARANTIES": "📄 En GPA",
-        "GPA": "📄 En GPA",
-        "CLÔTURE": "✅ Clôturé (soldé)"
-    }
-    
-    phase_principale = current_phase.get('phase_principale', '').upper()
-    
-    # Recherche du statut correspondant
-    for keyword, statut in phase_to_status.items():
-        if keyword in phase_principale:
-            return statut
-    
-    # Statut par défaut selon le type
-    if type_operation == "VEFA" and "TRAVAUX" in phase_principale:
-        return "🚧 Travaux promoteur"
-    
-    return "🟡 À l'étude"
-
 # ============================================================================
-# PARAMÈTRES APPLICATION
+# PARAMÈTRES APPLICATION AMÉLIORÉS
 # ============================================================================
 
 APP_CONFIG = {
     "app_title": "SPIC - Suivi Opérations Immobilières",
     "app_icon": "🏗️",
-    "version": "1.0.0",
+    "version": "2.0.0",
+    "description": "Application de pilotage des opérations immobilières avec gestion des alertes",
     "db_path": "spic_operations.db",
     "max_file_size_mb": 10,
     "date_format": "%d/%m/%Y",
@@ -1559,47 +1742,46 @@ APP_CONFIG = {
     "currency_symbol": "€",
     "default_timeout_days": 30,
     "backup_retention_days": 90,
-    "alert_advance_days": 7
+    "alert_advance_days": 7,
+    "timeline_colors": {
+        "validee": "#22c55e",
+        "en_cours": "#fbbf24", 
+        "en_retard": "#ef4444",
+        "bloquee": "#dc2626",
+        "echeance_proche": "#f59e0b"
+    },
+    "interface_epuree": True,  # Suppression onglets Finances/Fichiers
+    "onglets_actifs": ["phases", "journal", "timeline"]
 }
 
 # ============================================================================
-# DONNÉES DE TEST (OPTIONNEL)
+# DONNÉES DE TEST ET DÉMONSTRATION
 # ============================================================================
 
-OPERATIONS_TEST = [
+OPERATIONS_DEMO = [
     {
-        "nom": "Résidence Les Palmiers",
+        "nom": "44 COUR CHARNEAU",
         "type_operation": "OPP",
-        "responsable_aco": "MSL",
-        "commune": "Les Abymes",
-        "promoteur": "",
-        "nb_logements_total": 24,
-        "nb_lls": 12,
-        "nb_llts": 8,
-        "nb_pls": 4,
-        "budget_total": 3200000.0
-    },
-    {
-        "nom": "44 Cour Charneau",
-        "type_operation": "OPP", 
-        "responsable_aco": "MARIO M",
-        "commune": "Sainte-Anne",
+        "responsable_aco": "Merezia CALVADOS",
+        "commune": "LES ABYMES",
         "promoteur": "",
         "nb_logements_total": 18,
         "nb_lls": 10,
         "nb_llts": 6,
         "nb_pls": 2,
-        "budget_total": 2800000.0
+        "budget_total": 2800000.0,
+        "avancement_initial": 57.8  # Correspond aux 26 phases validées sur 45
     }
 ]
 
 # Validation de la configuration au chargement
 if __name__ == "__main__":
     if validate_config():
-        print("✅ Configuration valide")
-        print(f"📊 OPP: {len(REFERENTIELS_PHASES['OPP'])} phases")
-        print(f"📊 VEFA: {len(REFERENTIELS_PHASES['VEFA'])} phases") 
-        print(f"📊 AMO: {len(REFERENTIELS_PHASES['AMO'])} phases")
-        print(f"📊 MANDAT: {len(REFERENTIELS_PHASES['MANDAT'])} phases")
+        print("✅ Configuration SPIC 2.0 validée avec succès")
+        print(f"📊 Référentiels chargés :")
+        for type_op, phases in REFERENTIELS_PHASES.items():
+            print(f"   - {type_op}: {len(phases)} phases")
+        print(f"🎯 {len(STATUTS_GLOBAUX)} statuts dynamiques")
+        print(f"👥 {len(INTERVENANTS['ACO'])} ACO configurés")
     else:
-        print("❌ Erreur dans la configuration")
+        print("❌ Erreur dans la configuration SPIC 2.0")
