@@ -456,7 +456,12 @@ def render_phases_tab(operation_id):
                 # Mise à jour du pourcentage d'avancement
                 phases_actualisees = db.get_phases_by_operation(operation_id)
                 nouveau_pourcentage = utils.calculate_progress(phases_actualisees)
+                operation = db.get_operation_detail(operation_id)
+                nouveau_statut = utils.calculate_status_from_phases(phases_actualisees, 
+                operation['type_operation'])
+
                 db.update_operation_progress(operation_id, nouveau_pourcentage)
+                db.update_operation_status(operation_id, nouveau_statut)
                 
                 # Ajout dans le journal
                 db.add_journal_entry(

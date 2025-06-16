@@ -394,3 +394,30 @@ def calculate_duration_days(duration_str: str) -> int:
             return 30  # Défaut
     except:
         return 30
+
+
+def calculate_status_from_phases(phases, type_operation):
+    """Calcule le statut automatique basé sur l'avancement des phases"""
+    
+    if not phases:
+        return "🟡 À l'étude"
+    
+    # Calcul du pourcentage d'avancement
+    total_phases = len(phases)
+    phases_validees = sum(1 for phase in phases if phase.get('est_validee', False))
+    pourcentage = (phases_validees / total_phases) * 100
+    
+    # Logique de statut selon l'avancement
+    if pourcentage == 100:
+        return "✅ Clôturé (soldé)"
+    elif pourcentage >= 80:
+        return "📦 Livré (non soldé)"
+    elif pourcentage >= 60:
+        return "🚧 En travaux"
+    elif pourcentage >= 40:
+        return "📋 Marché attribué"
+    elif pourcentage >= 20:
+        return "🛠️ En consultation"
+    else:
+        return "🟡 À l'étude"
+

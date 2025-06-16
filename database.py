@@ -375,22 +375,22 @@ class DatabaseManager:
         finally:
             conn.close()
     
-    def update_operation_progress(self, operation_id: int, pourcentage: float) -> bool:
-        """Met à jour le pourcentage d'avancement d'une opération"""
+    def update_operation_status(self, operation_id: int, statut: str) -> bool:
+        """Met à jour le statut d'une opération"""
         
         conn = self.get_connection()
         try:
             conn.execute("""
                 UPDATE operations 
-                SET pourcentage_avancement = ?, date_maj = CURRENT_TIMESTAMP
+                SET statut_principal = ?, date_maj = CURRENT_TIMESTAMP
                 WHERE id = ?
-            """, (pourcentage, operation_id))
+            """, (statut, operation_id))
             
             conn.commit()
             return True
             
         except Exception as e:
-            print(f"❌ Erreur mise à jour avancement : {e}")
+            print(f"❌ Erreur mise à jour statut : {e}")
             conn.rollback()
             return False
         finally:
