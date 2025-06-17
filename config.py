@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Configuration centralisée pour l'application SPIC - VERSION AMÉLIORÉE
+Configuration centralisée pour l'application SPIC 2.0 - VERSION STREAMLIT
 Gestion des opérations immobilières (OPP, VEFA, AMO, MANDAT)
-Intégration gestion dynamique ACO + logique alertes
+Intégration : gestion dynamique ACO + logique alertes + module REM
 """
 
 from typing import Dict, List, Any
@@ -153,6 +153,75 @@ TYPES_ALERTES = {
 }
 
 # ============================================================================
+# MODULE REM - PROJECTION RENTABILITÉ
+# ============================================================================
+
+REM_CONFIG = {
+    "taux_rem_standard": {
+        "LLS": 4.2,      # % REM standard pour LLS
+        "LLTS": 3.8,     # % REM standard pour LLTS
+        "PLS": 3.5       # % REM standard pour PLS
+    },
+    "periodicite": {
+        "mensuelle": 12,
+        "trimestrielle": 4,
+        "semestrielle": 2,
+        "annuelle": 1
+    },
+    "facteurs_correction": {
+        "retard_livraison": -0.1,    # -10% si retard
+        "avance_livraison": 0.05,    # +5% si avance
+        "depassement_budget": -0.05, # -5% si dépassement
+        "economies_budget": 0.03     # +3% si économies
+    }
+}
+
+# ============================================================================
+# PHASES FINANCIÈRES DÉTAILLÉES
+# ============================================================================
+
+PHASES_FINANCIERES = {
+    "LBU": {
+        "nom_complet": "Ligne Budget Utilisateur",
+        "description": "Validation du budget par le Conseil d'Administration",
+        "etapes": ["Préparation dossier", "Présentation CA", "Vote", "Notification"]
+    },
+    "CDC_PRET": {
+        "nom_complet": "Prêt Caisse des Dépôts",
+        "description": "Contrat de financement principal",
+        "etapes": ["Dossier", "Instruction", "Accord", "Signature", "Déblocage"]
+    },
+    "COFINANCEMENTS": {
+        "CAF": {
+            "nom": "Cofinancement CAF",
+            "taux_max": 30,
+            "criteres": ["Mixité sociale", "Zone géographique"]
+        },
+        "ACTION_LOGEMENT": {
+            "nom": "Aide Action Logement", 
+            "taux_max": 25,
+            "criteres": ["Salariés privé", "Zones tendues"]
+        }
+    },
+    "GARANTIES": {
+        "DEPARTEMENT": {
+            "nom": "Garantie Département",
+            "taux_standard": 50,
+            "taux_max": 100
+        },
+        "VILLE": {
+            "nom": "Garantie Ville/EPCI",
+            "taux_standard": 25,
+            "taux_max": 50
+        },
+        "AUTRES": {
+            "nom": "Autres garanties",
+            "sources": ["Région", "Europe", "Fondations"]
+        }
+    }
+}
+
+# ============================================================================
 # RÉFÉRENTIELS PHASES COMPLETS PAR TYPE D'OPÉRATION
 # ============================================================================
 
@@ -170,7 +239,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si pas validé après 2 semaines",
             "documents_requis": "Fiche opportunité, étude de marché",
-            "criteres_validation": "Faisabilité confirmée, budget estimatif"
+            "criteres_validation": "Faisabilité confirmée, budget estimatif",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "1. MONTAGE",
@@ -183,7 +254,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si pas validé après 4 semaines",
             "documents_requis": "Programme détaillé, mixité sociale",
-            "criteres_validation": "Programme approuvé par direction"
+            "criteres_validation": "Programme approuvé par direction",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Définition du nombre de logements et types"
         },
         {
             "phase_principale": "1. MONTAGE",
@@ -196,7 +270,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si négociation bloquée + 8 semaines",
             "documents_requis": "Compromis ou promesse de vente",
-            "criteres_validation": "Acte notarié ou réservation sécurisée"
+            "criteres_validation": "Acte notarié ou réservation sécurisée",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Coût foncier impacte la rentabilité"
         },
         
         # ======================= PHASE 2 : ÉTUDES =======================
@@ -211,7 +288,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si pas de livraison après 4 semaines",
             "documents_requis": "Plans masse, élévations, coupes",
-            "criteres_validation": "Plans ESQ approuvés et signés"
+            "criteres_validation": "Plans ESQ approuvés et signés",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -224,7 +303,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si retard sur planning + 6 semaines",
             "documents_requis": "Plans APS, note technique, budget",
-            "criteres_validation": "Validation technique et budgétaire"
+            "criteres_validation": "Validation technique et budgétaire",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Estimation coûts travaux pour calcul REM"
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -237,7 +319,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si dépassement budget + 8 semaines",
             "documents_requis": "Plans APD, CCTP, métré détaillé",
-            "criteres_validation": "Budget définitif dans enveloppe"
+            "criteres_validation": "Budget définitif dans enveloppe",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Budget définitif pour projection REM finale"
         },
         {
             "phase_principale": "2. ÉTUDES",
@@ -250,7 +335,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si études non finalisées + 12 semaines",
             "documents_requis": "Plans PRO, CCTP définitif, budget final",
-            "criteres_validation": "Dossier complet pour consultation"
+            "criteres_validation": "Dossier complet pour consultation",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. ÉTUDES", 
@@ -263,7 +350,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si DCE incomplet + 6 semaines",
             "documents_requis": "DCE complet, règlement consultation",
-            "criteres_validation": "DCE validé juridiquement"
+            "criteres_validation": "DCE validé juridiquement",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         
         # ======================= PHASE 3 : AUTORISATIONS =======================
@@ -278,7 +367,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si dépôt tardif + 2 semaines",
             "documents_requis": "Dossier PC complet",
-            "criteres_validation": "Récépissé de dépôt obtenu"
+            "criteres_validation": "Récépissé de dépôt obtenu",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -291,7 +382,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si dépassement délai légal + 2 semaines",
             "documents_requis": "Réponses aux observations",
-            "criteres_validation": "PC accordé définitivement"
+            "criteres_validation": "PC accordé définitivement",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Retard PC retarde livraison et première REM"
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -304,13 +398,15 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si recours déposé",
             "documents_requis": "Affichage, publications légales",
-            "criteres_validation": "Délai de recours purgé"
+            "criteres_validation": "Délai de recours purgé",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         
         # ======================= PHASE 4 : FINANCEMENT =======================
         {
             "phase_principale": "4. FINANCEMENT",
-            "sous_phase": "4.1 LBU - Ligne de Crédit validée",
+            "sous_phase": "4.1 LBU - Ligne Budget Utilisateur",
             "ordre": 12,
             "duree_mini_jours": 30,
             "duree_maxi_jours": 90,
@@ -319,7 +415,11 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si validation retardée + 6 semaines",
             "documents_requis": "Bilan prévisionnel, plan financement",
-            "criteres_validation": "LBU votée en CA"
+            "criteres_validation": "LBU votée en CA",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Validation budget nécessaire pour démarrage",
+            "phase_financiere": "LBU"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -332,7 +432,11 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si négociation bloquée + 8 semaines",
             "documents_requis": "Dossier de financement complet",
-            "criteres_validation": "Contrat CDC signé"
+            "criteres_validation": "Contrat CDC signé",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Taux prêt CDC impacte la rentabilité",
+            "phase_financiere": "CDC_PRET"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -345,7 +449,11 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si refus ou retard + 10 semaines",
             "documents_requis": "Dossiers cofinancement",
-            "criteres_validation": "Accords de financement signés"
+            "criteres_validation": "Accords de financement signés",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Cofinancements améliorent la rentabilité",
+            "phase_financiere": "COFINANCEMENTS"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -358,7 +466,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🟡 À l'étude",
             "alerte_automatique": "Si garanties insuffisantes + 4 semaines",
             "documents_requis": "Garanties bancaires, assurances",
-            "criteres_validation": "Garanties actées et signées"
+            "criteres_validation": "Garanties actées et signées",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": False,
+            "phase_financiere": "GARANTIES"
         },
         
         # ======================= PHASE 5 : CONSULTATION =======================
@@ -373,7 +484,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🛠️ En consultation",
             "alerte_automatique": "Si publication retardée + 1 semaine",
             "documents_requis": "DCE finalisé, avis de marché",
-            "criteres_validation": "Publication effective"
+            "criteres_validation": "Publication effective",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -386,7 +499,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🛠️ En consultation",
             "alerte_automatique": "Si peu d'offres reçues",
             "documents_requis": "Réponses aux questions",
-            "criteres_validation": "Au moins 3 offres recevables"
+            "criteres_validation": "Au moins 3 offres recevables",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -399,7 +514,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🛠️ En consultation",
             "alerte_automatique": "Si analyse tardive + 3 semaines",
             "documents_requis": "Grilles d'analyse, rapports",
-            "criteres_validation": "Classement des offres validé"
+            "criteres_validation": "Classement des offres validé",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Prix des offres impacte le coût final"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -412,7 +530,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🛠️ En consultation",
             "alerte_automatique": "Si négociation infructueuse",
             "documents_requis": "PV de négociation",
-            "criteres_validation": "Offre finale dans budget"
+            "criteres_validation": "Offre finale dans budget",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Négociation peut améliorer la rentabilité"
         },
         {
             "phase_principale": "5. CONSULTATION",
@@ -425,7 +546,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🛠️ En consultation",
             "alerte_automatique": "Si décision négative ou report",
             "documents_requis": "Rapport d'analyse complet",
-            "criteres_validation": "Attribution votée en CAO"
+            "criteres_validation": "Attribution votée en CAO",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         
         # ======================= PHASE 6 : ATTRIBUTION =======================
@@ -440,7 +563,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📋 Marché attribué",
             "alerte_automatique": "Si refus entreprise",
             "documents_requis": "Lettre de notification",
-            "criteres_validation": "Acceptation entreprise"
+            "criteres_validation": "Acceptation entreprise",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -453,7 +578,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📋 Marché attribué",
             "alerte_automatique": "Si dossier incomplet + 4 semaines",
             "documents_requis": "Pièces administratives complètes",
-            "criteres_validation": "Dossier juridiquement complet"
+            "criteres_validation": "Dossier juridiquement complet",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -466,7 +593,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📋 Marché attribué",
             "alerte_automatique": "Si signature retardée + 2 semaines",
             "documents_requis": "Marché finalisé et visé",
-            "criteres_validation": "Signatures effectives"
+            "criteres_validation": "Signatures effectives",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Montant marché final pour calcul REM définitif"
         },
         {
             "phase_principale": "6. ATTRIBUTION",
@@ -479,7 +609,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📋 Marché attribué",
             "alerte_automatique": "Si délai OS dépassé",
             "documents_requis": "OS signé et notifié",
-            "criteres_validation": "Démarrage effectif des travaux"
+            "criteres_validation": "Démarrage effectif des travaux",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Date OS = début du compte à rebours vers première REM"
         },
         
         # ======================= PHASE 7 : TRAVAUX =======================
@@ -494,7 +627,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si retard ouverture",
             "documents_requis": "Déclaration ouverture chantier",
-            "criteres_validation": "Chantier effectivement ouvert"
+            "criteres_validation": "Chantier effectivement ouvert",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Date ouverture chantier = début période avant livraison"
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -507,7 +643,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si retard planning + 2 semaines",
             "documents_requis": "PV fondations, contrôles béton",
-            "criteres_validation": "Fondations conformes et réceptionnées"
+            "criteres_validation": "Fondations conformes et réceptionnées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -520,7 +658,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si retard hors d'eau + 3 semaines",
             "documents_requis": "PV hors d'eau",
-            "criteres_validation": "Étanchéité assurée"
+            "criteres_validation": "Étanchéité assurée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -533,7 +673,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si coordination défaillante",
             "documents_requis": "Planning coordonné, PV étapes",
-            "criteres_validation": "Clos couvert achevé"
+            "criteres_validation": "Clos couvert achevé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -546,7 +688,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si finitions non conformes",
             "documents_requis": "Fiches de contrôle qualité",
-            "criteres_validation": "Finitions conformes au marché"
+            "criteres_validation": "Finitions conformes au marché",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -559,7 +703,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si absence répétée entreprises",
             "documents_requis": "PV réunions hebdomadaires",
-            "criteres_validation": "Suivi régulier et traçable"
+            "criteres_validation": "Suivi régulier et traçable",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. TRAVAUX",
@@ -572,7 +718,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "🚧 En travaux",
             "alerte_automatique": "Si DACT non déclarée",
             "documents_requis": "Déclaration achèvement",
-            "criteres_validation": "Travaux réellement achevés"
+            "criteres_validation": "Travaux réellement achevés",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "DACT déclenche procédure de livraison et REM"
         },
         
         # ======================= PHASE 8 : RÉCEPTION =======================
@@ -587,7 +736,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si réserves importantes",
             "documents_requis": "Grille de pré-réception",
-            "criteres_validation": "Réserves mineures uniquement"
+            "criteres_validation": "Réserves mineures uniquement",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. RÉCEPTION",
@@ -600,7 +751,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si réception refusée",
             "documents_requis": "PV de réception signé",
-            "criteres_validation": "Réception actée sans réserve majeure"
+            "criteres_validation": "Réception actée sans réserve majeure",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Date réception = début période de génération REM"
         },
         {
             "phase_principale": "8. RÉCEPTION",
@@ -613,7 +767,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si DOE incomplet + 6 semaines",
             "documents_requis": "Plans conformes, notices équipements",
-            "criteres_validation": "DOE complet et exploitable"
+            "criteres_validation": "DOE complet et exploitable",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. RÉCEPTION",
@@ -626,7 +782,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si DIUO manquant + 4 semaines",
             "documents_requis": "DIUO complet et à jour",
-            "criteres_validation": "Sécurité maintenance assurée"
+            "criteres_validation": "Sécurité maintenance assurée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. RÉCEPTION",
@@ -639,7 +797,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si entreprises non joignables",
             "documents_requis": "Attestations GPA",
-            "criteres_validation": "GPA effective et notifiée"
+            "criteres_validation": "GPA effective et notifiée",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         
         # ======================= PHASE 9 : LIVRAISON =======================
@@ -654,7 +814,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si livraison retardée",
             "documents_requis": "États des lieux, remise clés",
-            "criteres_validation": "Tous logements livrés"
+            "criteres_validation": "Tous logements livrés",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Livraison locataires = début REM effective"
         },
         {
             "phase_principale": "9. LIVRAISON",
@@ -667,7 +830,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si mise en gestion retardée",
             "documents_requis": "Fiches locataires, baux signés",
-            "criteres_validation": "Gestion opérationnelle effective"
+            "criteres_validation": "Gestion opérationnelle effective",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Mise en gestion = début encaissement loyers et REM"
         },
         {
             "phase_principale": "9. LIVRAISON",
@@ -680,7 +846,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si logements vacants",
             "documents_requis": "Tableau de commercialisation",
-            "criteres_validation": "Taux occupation satisfaisant"
+            "criteres_validation": "Taux occupation satisfaisant",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Taux occupation impacte la REM réelle"
         },
         {
             "phase_principale": "9. LIVRAISON",
@@ -693,7 +862,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "📦 Livré (non soldé)",
             "alerte_automatique": "Si réserves non levées + 2 mois",
             "documents_requis": "PV levées de réserves",
-            "criteres_validation": "Toutes réserves levées"
+            "criteres_validation": "Toutes réserves levées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         
         # ======================= PHASE 10 : CLÔTURE =======================
@@ -708,7 +879,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "✅ Clôturé (soldé)",
             "alerte_automatique": "Si réclamations post-GPA",
             "documents_requis": "Bilan GPA, mainlevées",
-            "criteres_validation": "Année GPA sans problème majeur"
+            "criteres_validation": "Année GPA sans problème majeur",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -721,7 +894,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "✅ Clôturé (soldé)",
             "alerte_automatique": "Si documents manquants",
             "documents_requis": "Dossier complet archivé",
-            "criteres_validation": "Tous documents finalisés"
+            "criteres_validation": "Tous documents finalisés",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -734,7 +909,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "✅ Clôturé (soldé)",
             "alerte_automatique": "Si écarts budgétaires",
             "documents_requis": "Bilan financier final",
-            "criteres_validation": "Comptes équilibrés et arrêtés"
+            "criteres_validation": "Comptes équilibrés et arrêtés",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Clôture financière = bilan REM définitif"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -747,7 +925,10 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "✅ Clôturé (soldé)",
             "alerte_automatique": "Si solde non finalisé",
             "documents_requis": "Solde validé et voté",
-            "criteres_validation": "Opération définitivement soldée"
+            "criteres_validation": "Opération définitivement soldée",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Solde final = REM totale de l'opération"
         },
         {
             "phase_principale": "10. CLÔTURE",
@@ -760,7 +941,9 @@ REFERENTIELS_PHASES = {
             "statut_global_associe": "✅ Clôturé (soldé)",
             "alerte_automatique": "Si archivage incomplet",
             "documents_requis": "Dossier archivé physique + numérique",
-            "criteres_validation": "Archivage conforme et accessible"
+            "criteres_validation": "Archivage conforme et accessible",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         }
     ],
     
@@ -775,7 +958,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "ACO",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si pas de contact après 4 semaines"
+            "alerte_automatique": "Si pas de contact après 4 semaines",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "1. PROSPECTION",
@@ -786,7 +971,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Programmiste",
             "responsable_validation": "Direction SPIC",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si programme inadéquat"
+            "alerte_automatique": "Si programme inadéquat",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Programme définit le potentiel REM"
         },
         {
             "phase_principale": "1. PROSPECTION",
@@ -797,7 +985,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Direction",
             "responsable_validation": "Direction + Conseil",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si négociation bloquée + 6 semaines"
+            "alerte_automatique": "Si négociation bloquée + 6 semaines",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Prix VEFA détermine la rentabilité"
         },
         {
             "phase_principale": "2. CONTRACTUALISATION",
@@ -808,7 +999,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction + Notaire",
             "responsable_validation": "Direction + Promoteur",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si signature retardée"
+            "alerte_automatique": "Si signature retardée",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Signature VEFA sécurise la projection REM"
         },
         {
             "phase_principale": "2. CONTRACTUALISATION",
@@ -819,7 +1013,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur + SPIC",
             "responsable_validation": "Toutes parties",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si conditions non levées"
+            "alerte_automatique": "Si conditions non levées",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -830,7 +1026,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur",
             "responsable_validation": "Mairie",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si dépôt tardif promoteur"
+            "alerte_automatique": "Si dépôt tardif promoteur",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. AUTORISATIONS",
@@ -841,7 +1039,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Services instructeurs",
             "responsable_validation": "Mairie + Promoteur",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si refus PC ou recours"
+            "alerte_automatique": "Si refus PC ou recours",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Retard PC retarde livraison et REM"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -852,7 +1053,11 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction Financière",
             "responsable_validation": "CDC + SPIC",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si financement refusé"
+            "alerte_automatique": "Si financement refusé",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Conditions prêt impactent la rentabilité",
+            "phase_financiere": "CDC_PRET"
         },
         {
             "phase_principale": "4. FINANCEMENT",
@@ -863,7 +1068,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur + SPIC",
             "responsable_validation": "Organismes financiers",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si garanties insuffisantes"
+            "alerte_automatique": "Si garanties insuffisantes",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": False,
+            "phase_financiere": "GARANTIES"
         },
         {
             "phase_principale": "5. LANCEMENT PROMOTEUR",
@@ -874,7 +1082,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur",
             "responsable_validation": "Promoteur",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si démarrage retardé"
+            "alerte_automatique": "Si démarrage retardé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Début travaux = compte à rebours vers livraison"
         },
         {
             "phase_principale": "6. SUIVI TRAVAUX",
@@ -885,7 +1096,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "ACO",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retard constaté planning"
+            "alerte_automatique": "Si retard constaté planning",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI TRAVAUX",
@@ -896,7 +1109,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Expert externe",
             "responsable_validation": "SPIC",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si non-conformités détectées"
+            "alerte_automatique": "Si non-conformités détectées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI TRAVAUX",
@@ -907,7 +1122,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur + SPIC",
             "responsable_validation": "Toutes parties",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si absence réunions"
+            "alerte_automatique": "Si absence réunions",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI TRAVAUX",
@@ -918,7 +1135,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "Promoteur",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si non-conformités non traitées"
+            "alerte_automatique": "Si non-conformités non traitées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. LIVRAISON",
@@ -929,7 +1148,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO + Expert",
             "responsable_validation": "SPIC",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réserves importantes"
+            "alerte_automatique": "Si réserves importantes",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. LIVRAISON",
@@ -940,7 +1161,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction SPIC",
             "responsable_validation": "SPIC + Promoteur",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réception refusée"
+            "alerte_automatique": "Si réception refusée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Réception = début génération REM"
         },
         {
             "phase_principale": "7. LIVRAISON",
@@ -951,7 +1175,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur",
             "responsable_validation": "SPIC",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si remise retardée"
+            "alerte_automatique": "Si remise retardée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Remise clés = début mise en location"
         },
         {
             "phase_principale": "8. GARANTIES",
@@ -962,7 +1189,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Promoteur",
             "responsable_validation": "Assureurs",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si défaut garantie"
+            "alerte_automatique": "Si défaut garantie",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. GARANTIES",
@@ -973,7 +1202,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Service maintenance",
             "responsable_validation": "Direction",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si sinistres non couverts"
+            "alerte_automatique": "Si sinistres non couverts",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "9. CLÔTURE",
@@ -984,7 +1215,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Service juridique",
             "responsable_validation": "Direction",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si litiges en cours"
+            "alerte_automatique": "Si litiges en cours",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "9. CLÔTURE",
@@ -995,7 +1228,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "ACO",
             "responsable_validation": "Direction",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si documents manquants"
+            "alerte_automatique": "Si documents manquants",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "9. CLÔTURE",
@@ -1006,7 +1241,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Services généraux",
             "responsable_validation": "Direction",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si archivage incomplet"
+            "alerte_automatique": "Si archivage incomplet",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         }
     ],
     
@@ -1021,7 +1258,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si analyse pas finalisée + 2 semaines"
+            "alerte_automatique": "Si analyse pas finalisée + 2 semaines",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "1. ASSISTANCE ÉTUDES",
@@ -1032,7 +1271,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + Programmiste",
             "responsable_validation": "MOA",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si programme non validé + 4 semaines"
+            "alerte_automatique": "Si programme non validé + 4 semaines",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Définition du programme impacte les honoraires AMO"
         },
         {
             "phase_principale": "1. ASSISTANCE ÉTUDES",
@@ -1043,7 +1285,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si MOE non désignée + 6 semaines"
+            "alerte_automatique": "Si MOE non désignée + 6 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. SUIVI CONSULTATION MOE",
@@ -1054,7 +1298,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si consultation incomplète"
+            "alerte_automatique": "Si consultation incomplète",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. SUIVI CONSULTATION MOE",
@@ -1065,7 +1311,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + Commission",
             "responsable_validation": "MOA",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si analyse tardive"
+            "alerte_automatique": "Si analyse tardive",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. ASSISTANCE DCE",
@@ -1076,7 +1324,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA + MOE",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si DCE non validé + 3 semaines"
+            "alerte_automatique": "Si DCE non validé + 3 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. ASSISTANCE DCE",
@@ -1087,7 +1337,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si pièces manquantes"
+            "alerte_automatique": "Si pièces manquantes",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1098,7 +1350,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + Gestionnaire marchés",
             "responsable_validation": "MOA",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si lancement retardé"
+            "alerte_automatique": "Si lancement retardé",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1109,7 +1363,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + MOE",
             "responsable_validation": "Commission d'analyse",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si analyse insuffisante"
+            "alerte_automatique": "Si analyse insuffisante",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1120,7 +1376,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si négociation infructueuse"
+            "alerte_automatique": "Si négociation infructueuse",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. SUIVI TRAVAUX",
@@ -1131,7 +1389,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si OS retardé"
+            "alerte_automatique": "Si OS retardé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. SUIVI TRAVAUX",
@@ -1142,7 +1402,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + MOE",
             "responsable_validation": "MOA",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retards importants"
+            "alerte_automatique": "Si retards importants",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. SUIVI TRAVAUX",
@@ -1153,7 +1415,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA + Services juridiques",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si avenant nécessaire urgent"
+            "alerte_automatique": "Si avenant nécessaire urgent",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. SUIVI TRAVAUX",
@@ -1164,7 +1428,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si MED urgente"
+            "alerte_automatique": "Si MED urgente",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. SUIVI TRAVAUX",
@@ -1175,7 +1441,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si dysfonctionnement majeur"
+            "alerte_automatique": "Si dysfonctionnement majeur",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. RÉCEPTION",
@@ -1186,7 +1454,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO + MOE",
             "responsable_validation": "MOA",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réserves importantes"
+            "alerte_automatique": "Si réserves importantes",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. RÉCEPTION",
@@ -1197,7 +1467,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réception compromise"
+            "alerte_automatique": "Si réception compromise",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Réception = fin mission et solde honoraires"
         },
         {
             "phase_principale": "7. SUIVI GPA",
@@ -1208,7 +1481,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réserves non levées + 2 mois"
+            "alerte_automatique": "Si réserves non levées + 2 mois",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. SUIVI GPA",
@@ -1219,7 +1494,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA + Assureurs",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si sinistre non traité"
+            "alerte_automatique": "Si sinistre non traité",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1230,7 +1507,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si bilan non finalisé"
+            "alerte_automatique": "Si bilan non finalisé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Bilan mission = validation finale honoraires"
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1241,7 +1521,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "AMO",
             "responsable_validation": "MOA",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si dossier incomplet"
+            "alerte_automatique": "Si dossier incomplet",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1252,7 +1534,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "MOA",
             "responsable_validation": "Services financiers",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si solde non réglé"
+            "alerte_automatique": "Si solde non réglé",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Solde honoraires = REM finale mission AMO"
         }
     ],
     
@@ -1267,7 +1552,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si négociation bloquée + 4 semaines"
+            "alerte_automatique": "Si négociation bloquée + 4 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Conditions mandat définissent la rémunération"
         },
         {
             "phase_principale": "1. CONVENTION MANDAT",
@@ -1278,7 +1566,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Direction SPIC",
             "responsable_validation": "Toutes parties",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si signature retardée"
+            "alerte_automatique": "Si signature retardée",
+            "domaine": "JURIDIQUE",
+            "impact_rem": True,
+            "rem_impact_desc": "Signature = sécurisation REM mandat"
         },
         {
             "phase_principale": "1. CONVENTION MANDAT",
@@ -1289,7 +1580,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + MOA mandante",
             "responsable_validation": "Toutes parties",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si conditions non levées"
+            "alerte_automatique": "Si conditions non levées",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. ÉTUDES PRÉALABLES",
@@ -1300,7 +1593,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Programmiste",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si programme non validé + 4 semaines"
+            "alerte_automatique": "Si programme non validé + 4 semaines",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. ÉTUDES PRÉALABLES",
@@ -1311,7 +1606,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si architecte non choisi + 6 semaines"
+            "alerte_automatique": "Si architecte non choisi + 6 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "2. ÉTUDES PRÉALABLES",
@@ -1322,7 +1619,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si faisabilité négative"
+            "alerte_automatique": "Si faisabilité négative",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. PROCÉDURES MOA",
@@ -1333,7 +1632,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Architecte",
             "responsable_validation": "Services instructeurs",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si demandes incomplètes"
+            "alerte_automatique": "Si demandes incomplètes",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "3. PROCÉDURES MOA",
@@ -1344,7 +1645,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante + Financeurs",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si financement insuffisant"
+            "alerte_automatique": "Si financement insuffisant",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Montage financier valide la viabilité REM"
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1355,7 +1659,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Architecte + SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🟡 À l'étude",
-            "alerte_automatique": "Si DCE non finalisé + 6 semaines"
+            "alerte_automatique": "Si DCE non finalisé + 6 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1366,7 +1672,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "Commission d'appel d'offres",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si lancement retardé"
+            "alerte_automatique": "Si lancement retardé",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "4. CONSULTATION ENTREPRISES",
@@ -1377,7 +1685,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Architecte",
             "responsable_validation": "Commission",
             "statut_global_associe": "🛠️ En consultation",
-            "alerte_automatique": "Si analyse tardive + 4 semaines"
+            "alerte_automatique": "Si analyse tardive + 4 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. PASSATION MARCHÉS",
@@ -1388,7 +1698,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si attribution retardée"
+            "alerte_automatique": "Si attribution retardée",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. PASSATION MARCHÉS",
@@ -1399,7 +1711,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "Entreprises + MOA mandante",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si signature retardée + 3 semaines"
+            "alerte_automatique": "Si signature retardée + 3 semaines",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "5. PASSATION MARCHÉS",
@@ -1410,7 +1724,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "Entreprises",
             "statut_global_associe": "📋 Marché attribué",
-            "alerte_automatique": "Si OS non émis + 2 semaines"
+            "alerte_automatique": "Si OS non émis + 2 semaines",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI CHANTIER",
@@ -1421,7 +1737,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "Entreprises",
             "responsable_validation": "SPIC + Architecte",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si démarrage retardé"
+            "alerte_automatique": "Si démarrage retardé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI CHANTIER",
@@ -1432,7 +1750,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Architecte",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si retards importants planning"
+            "alerte_automatique": "Si retards importants planning",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI CHANTIER",
@@ -1443,7 +1763,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Architecte",
             "responsable_validation": "Toutes parties",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si absences répétées"
+            "alerte_automatique": "Si absences répétées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI CHANTIER",
@@ -1454,7 +1776,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si avenant urgent nécessaire"
+            "alerte_automatique": "Si avenant urgent nécessaire",
+            "domaine": "JURIDIQUE",
+            "impact_rem": False
         },
         {
             "phase_principale": "6. SUIVI CHANTIER",
@@ -1465,7 +1789,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Contrôleur technique",
             "responsable_validation": "SPIC",
             "statut_global_associe": "🚧 En travaux",
-            "alerte_automatique": "Si non-conformités détectées"
+            "alerte_automatique": "Si non-conformités détectées",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. RÉCEPTION",
@@ -1476,7 +1802,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC + Architecte",
             "responsable_validation": "SPIC",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réserves importantes"
+            "alerte_automatique": "Si réserves importantes",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "7. RÉCEPTION",
@@ -1487,7 +1815,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "📦 Livré (non soldé)",
-            "alerte_automatique": "Si réception refusée"
+            "alerte_automatique": "Si réception refusée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Réception = fin mission et déclenchement REM"
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1498,7 +1829,9 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si remise retardée"
+            "alerte_automatique": "Si remise retardée",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": False
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1509,7 +1842,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "SPIC",
             "responsable_validation": "MOA mandante",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si bilan non finalisé"
+            "alerte_automatique": "Si bilan non finalisé",
+            "domaine": "OPERATIONNEL",
+            "impact_rem": True,
+            "rem_impact_desc": "Bilan final = validation REM mandat"
         },
         {
             "phase_principale": "8. CLÔTURE MISSION",
@@ -1520,7 +1856,10 @@ REFERENTIELS_PHASES = {
             "responsable_principal": "MOA mandante",
             "responsable_validation": "Services financiers",
             "statut_global_associe": "✅ Clôturé (soldé)",
-            "alerte_automatique": "Si solde non réglé + 2 semaines"
+            "alerte_automatique": "Si solde non réglé + 2 semaines",
+            "domaine": "BUDGETAIRE",
+            "impact_rem": True,
+            "rem_impact_desc": "Solde mission = REM finale mandat"
         }
     ]
 }
@@ -1549,6 +1888,53 @@ STATUTS_PAR_TYPE = {
         "🚧 En travaux", "📦 Livré (non soldé)",
         "✅ Clôturé (soldé)", "🔴 Bloqué"
     ]
+}
+
+# ============================================================================
+# DOMAINES OPÉRATIONNELS POUR TIMELINE ET CARTE MENTALE
+# ============================================================================
+
+DOMAINES_OPERATIONNELS = {
+    "OPERATIONNEL": {
+        "nom": "Opérationnel",
+        "couleur": "#3b82f6",
+        "icone": "🏗️",
+        "description": "Phases techniques et opérationnelles"
+    },
+    "JURIDIQUE": {
+        "nom": "Juridique",
+        "couleur": "#8b5cf6",
+        "icone": "⚖️",
+        "description": "Phases contractuelles et juridiques"
+    },
+    "BUDGETAIRE": {
+        "nom": "Budgétaire",
+        "couleur": "#10b981",
+        "icone": "💰",
+        "description": "Phases financières et budgétaires"
+    }
+}
+
+# ============================================================================
+# GESTION PHASES DYNAMIQUES
+# ============================================================================
+
+PHASE_MANAGEMENT = {
+    "allow_custom_phases": True,
+    "allow_reorder": True,
+    "auto_status_calculation": True,
+    "phase_colors": {
+        "validee": "#22c55e",      # Vert
+        "en_cours": "#fbbf24",     # Jaune
+        "en_retard": "#ef4444",    # Rouge
+        "bloquee": "#dc2626",      # Rouge foncé
+        "echeance_proche": "#f59e0b" # Orange
+    },
+    "durée_modification": {
+        "min_jours": 1,
+        "max_jours": 730,  # 2 ans maximum
+        "increment": 1
+    }
 }
 
 # ============================================================================
@@ -1596,10 +1982,10 @@ def get_phase_color(est_validee: bool, date_fin_prevue: str = None, blocage_acti
     """Retourne la couleur d'une phase selon son état"""
     
     if blocage_actif:
-        return "🔴"  # Rouge - Bloquée
+        return PHASE_MANAGEMENT["phase_colors"]["bloquee"]
     
     if est_validee:
-        return "🟢"  # Vert - Validée
+        return PHASE_MANAGEMENT["phase_colors"]["validee"]
     
     if date_fin_prevue:
         try:
@@ -1608,13 +1994,13 @@ def get_phase_color(est_validee: bool, date_fin_prevue: str = None, blocage_acti
             today = datetime.now().date()
             
             if today > date_fin:
-                return "🔴"  # Rouge - En retard
+                return PHASE_MANAGEMENT["phase_colors"]["en_retard"]
             elif (date_fin - today).days <= 7:
-                return "🟠"  # Orange - Échéance proche
+                return PHASE_MANAGEMENT["phase_colors"]["echeance_proche"]
         except:
             pass
     
-    return "🟡"  # Jaune - En cours
+    return PHASE_MANAGEMENT["phase_colors"]["en_cours"]
 
 def calculate_risk_score(operation: Dict, phases: List[Dict], alertes: List[Dict] = None) -> float:
     """Calcule le score de risque d'une opération"""
@@ -1665,6 +2051,141 @@ def calculate_risk_score(operation: Dict, phases: List[Dict], alertes: List[Dict
     
     return min(100, score_risque)  # Maximum 100
 
+# ============================================================================
+# FONCTIONS REM - PROJECTION RENTABILITÉ
+# ============================================================================
+
+def calculate_rem_projection(operation: Dict, nb_logements_par_type: Dict = None, 
+                            date_livraison_prevue: str = None, periode: str = "annuelle") -> Dict:
+    """Calcule la projection REM d'une opération"""
+    
+    try:
+        if not operation:
+            return {"erreur": "Opération manquante"}
+        
+        # Récupérer les types de logements
+        nb_lls = operation.get('nb_lls', 0)
+        nb_llts = operation.get('nb_llts', 0) 
+        nb_pls = operation.get('nb_pls', 0)
+        
+        if nb_logements_par_type:
+            nb_lls = nb_logements_par_type.get('LLS', nb_lls)
+            nb_llts = nb_logements_par_type.get('LLTS', nb_llts)
+            nb_pls = nb_logements_par_type.get('PLS', nb_pls)
+        
+        # Calcul REM par type
+        taux_rem = REM_CONFIG["taux_rem_standard"]
+        
+        # Estimation du coût de revient moyen par logement (si budget disponible)
+        budget_total = operation.get('budget_total', 0)
+        nb_total_logements = nb_lls + nb_llts + nb_pls
+        
+        if nb_total_logements > 0 and budget_total > 0:
+            cout_moyen_par_logement = budget_total / nb_total_logements
+        else:
+            # Valeur par défaut (à ajuster selon le contexte local)
+            cout_moyen_par_logement = 180000  # 180k€ par logement
+        
+        # Calcul REM annuelle estimée
+        rem_lls = (cout_moyen_par_logement * taux_rem["LLS"] / 100) * nb_lls
+        rem_llts = (cout_moyen_par_logement * taux_rem["LLTS"] / 100) * nb_llts
+        rem_pls = (cout_moyen_par_logement * taux_rem["PLS"] / 100) * nb_pls
+        
+        rem_annuelle_brute = rem_lls + rem_llts + rem_pls
+        
+        # Facteurs de correction selon l'avancement
+        facteur_correction = 1.0
+        avancement = operation.get('pourcentage_avancement', 0)
+        
+        # Si retard détecté, appliquer malus
+        if avancement < 60 and operation.get('statut_principal', '') == '🚧 En travaux':
+            facteur_correction += REM_CONFIG["facteurs_correction"]["retard_livraison"]
+        
+        rem_annuelle_corrigee = rem_annuelle_brute * facteur_correction
+        
+        # Calcul selon la périodicité demandée
+        multiplicateur = REM_CONFIG["periodicite"].get(periode, 1)
+        rem_periode = rem_annuelle_corrigee / multiplicateur
+        
+        return {
+            "rem_periode": round(rem_periode, 2),
+            "rem_annuelle": round(rem_annuelle_corrigee, 2),
+            "rem_brute": round(rem_annuelle_brute, 2),
+            "facteur_correction": facteur_correction,
+            "repartition": {
+                "LLS": round(rem_lls * facteur_correction, 2),
+                "LLTS": round(rem_llts * facteur_correction, 2),
+                "PLS": round(rem_pls * facteur_correction, 2)
+            },
+            "periode": periode,
+            "date_calcul": datetime.datetime.now().strftime('%d/%m/%Y'),
+            "nb_logements": {
+                "LLS": nb_lls,
+                "LLTS": nb_llts,
+                "PLS": nb_pls,
+                "total": nb_total_logements
+            }
+        }
+        
+    except Exception as e:
+        return {"erreur": f"Erreur calcul REM: {str(e)}"}
+
+def get_rem_portfolio_summary(operations: List[Dict], periode: str = "annuelle") -> Dict:
+    """Calcule le résumé REM d'un portfolio d'opérations"""
+    
+    try:
+        if not operations:
+            return {"erreur": "Aucune opération fournie"}
+        
+        rem_total = 0.0
+        rem_par_type_operation = {}
+        rem_par_statut = {}
+        operations_avec_rem = []
+        
+        for operation in operations:
+            # Calculer REM pour cette opération
+            rem_op = calculate_rem_projection(operation, periode=periode)
+            
+            if "erreur" not in rem_op:
+                rem_operation = rem_op["rem_periode"]
+                rem_total += rem_operation
+                
+                # Répartition par type d'opération
+                type_op = operation.get('type_operation', 'Inconnu')
+                rem_par_type_operation[type_op] = rem_par_type_operation.get(type_op, 0) + rem_operation
+                
+                # Répartition par statut
+                statut = operation.get('statut_principal', 'Inconnu')
+                rem_par_statut[statut] = rem_par_statut.get(statut, 0) + rem_operation
+                
+                operations_avec_rem.append({
+                    "nom": operation.get('nom', 'N/A'),
+                    "type": type_op,
+                    "rem_periode": rem_operation,
+                    "statut": statut
+                })
+        
+        # Trier les opérations par REM décroissante
+        operations_avec_rem.sort(key=lambda x: x['rem_periode'], reverse=True)
+        
+        return {
+            "rem_total": round(rem_total, 2),
+            "nb_operations": len(operations_avec_rem),
+            "rem_moyenne": round(rem_total / len(operations_avec_rem), 2) if operations_avec_rem else 0,
+            "rem_par_type": rem_par_type_operation,
+            "rem_par_statut": rem_par_statut,
+            "top_10_operations": operations_avec_rem[:10],
+            "periode": periode,
+            "date_calcul": datetime.datetime.now().strftime('%d/%m/%Y %H:%M')
+        }
+        
+    except Exception as e:
+        return {"erreur": f"Erreur calcul portfolio: {str(e)}"}
+
+# ============================================================================
+# GESTION PHASES CUSTOM
+# ============================================================================
+
 def add_aco(nom_aco: str) -> bool:
     """Ajoute un nouveau chargé d'opération"""
     try:
@@ -1699,6 +2220,42 @@ def update_aco(ancien_nom: str, nouveau_nom: str) -> bool:
     except Exception:
         return False
 
+def validate_phase_custom(phase_data: Dict) -> List[str]:
+    """Valide les données d'une phase personnalisée"""
+    
+    erreurs = []
+    
+    try:
+        # Vérifications obligatoires
+        if not phase_data.get('sous_phase'):
+            erreurs.append("Le nom de la sous-phase est obligatoire")
+        
+        if not phase_data.get('phase_principale'):
+            erreurs.append("La phase principale est obligatoire")
+        
+        # Vérifications des durées
+        duree_mini = phase_data.get('duree_mini_jours', 0)
+        duree_maxi = phase_data.get('duree_maxi_jours', 0)
+        
+        if duree_mini < PHASE_MANAGEMENT["durée_modification"]["min_jours"]:
+            erreurs.append(f"Durée minimale doit être >= {PHASE_MANAGEMENT['durée_modification']['min_jours']} jour(s)")
+        
+        if duree_maxi > PHASE_MANAGEMENT["durée_modification"]["max_jours"]:
+            erreurs.append(f"Durée maximale doit être <= {PHASE_MANAGEMENT['durée_modification']['max_jours']} jour(s)")
+        
+        if duree_mini > duree_maxi:
+            erreurs.append("La durée minimale ne peut pas être supérieure à la durée maximale")
+        
+        # Vérification du domaine
+        domaine = phase_data.get('domaine', '')
+        if domaine and domaine not in DOMAINES_OPERATIONNELS:
+            erreurs.append(f"Domaine '{domaine}' non reconnu. Domaines valides: {list(DOMAINES_OPERATIONNELS.keys())}")
+        
+        return erreurs
+        
+    except Exception as e:
+        return [f"Erreur de validation : {str(e)}"]
+
 def validate_config() -> bool:
     """Valide la cohérence de la configuration"""
     try:
@@ -1720,6 +2277,10 @@ def validate_config() -> bool:
                 return False
             if ordres != sorted(ordres):  # Vérifier ordre croissant
                 return False
+        
+        # Vérifier configuration REM
+        if not all(key in REM_CONFIG for key in ["taux_rem_standard", "periodicite", "facteurs_correction"]):
+            return False
                 
         return True
     except Exception as e:
@@ -1727,14 +2288,14 @@ def validate_config() -> bool:
         return False
 
 # ============================================================================
-# PARAMÈTRES APPLICATION AMÉLIORÉS
+# PARAMÈTRES APPLICATION STREAMLIT
 # ============================================================================
 
 APP_CONFIG = {
-    "app_title": "SPIC - Suivi Opérations Immobilières",
+    "app_title": "SPIC 2.0 - Suivi Opérations Immobilières",
     "app_icon": "🏗️",
     "version": "2.0.0",
-    "description": "Application de pilotage des opérations immobilières avec gestion des alertes",
+    "description": "Application Streamlit de pilotage des opérations immobilières avec gestion des alertes et REM",
     "db_path": "spic_operations.db",
     "max_file_size_mb": 10,
     "date_format": "%d/%m/%Y",
@@ -1751,11 +2312,13 @@ APP_CONFIG = {
         "echeance_proche": "#f59e0b"
     },
     "interface_epuree": True,  # Suppression onglets Finances/Fichiers
-    "onglets_actifs": ["phases", "journal", "timeline"]
+    "onglets_actifs": ["phases", "journal", "timeline"],
+    "rem_enabled": True,  # Module REM activé
+    "phases_custom_enabled": True  # Phases personnalisées activées
 }
 
 # ============================================================================
-# DONNÉES DE TEST ET DÉMONSTRATION
+# DONNÉES DE DÉMONSTRATION
 # ============================================================================
 
 OPERATIONS_DEMO = [
@@ -1770,18 +2333,66 @@ OPERATIONS_DEMO = [
         "nb_llts": 6,
         "nb_pls": 2,
         "budget_total": 2800000.0,
-        "avancement_initial": 57.8  # Correspond aux 26 phases validées sur 45
+        "avancement_initial": 57.8,  # Correspond aux 26 phases validées sur 45
+        "rem_annuelle_estimee": 117600.0  # Calculé avec les taux standards
     }
 ]
+
+# ============================================================================
+# FORMATS ET UTILITAIRES
+# ============================================================================
+
+def format_currency(montant: float, devise: str = "€") -> str:
+    """Formate un montant en devise française"""
+    try:
+        if montant == 0:
+            return f"0 {devise}"
+        
+        # Formatage français avec espaces comme séparateurs de milliers
+        if abs(montant) >= 1:
+            montant_formate = f"{montant:,.0f}".replace(",", " ")
+        else:
+            montant_formate = f"{montant:.2f}".replace(".", ",")
+        
+        return f"{montant_formate} {devise}"
+    except:
+        return f"{montant} {devise}"
+
+def format_date_fr(date_input) -> str:
+    """Formate une date au format français DD/MM/YYYY"""
+    try:
+        if isinstance(date_input, str):
+            if len(date_input) == 10 and date_input.count('-') == 2:
+                # Format YYYY-MM-DD
+                date_obj = datetime.datetime.strptime(date_input, '%Y-%m-%d').date()
+            else:
+                return date_input
+        elif hasattr(date_input, 'strftime'):
+            date_obj = date_input
+        else:
+            return str(date_input)
+        
+        return date_obj.strftime('%d/%m/%Y')
+    except:
+        return str(date_input)
+
+def format_percentage(valeur: float, decimales: int = 1) -> str:
+    """Formate un pourcentage"""
+    try:
+        return f"{valeur:.{decimales}f}%"
+    except:
+        return f"{valeur}%"
 
 # Validation de la configuration au chargement
 if __name__ == "__main__":
     if validate_config():
-        print("✅ Configuration SPIC 2.0 validée avec succès")
+        print("✅ Configuration SPIC 2.0 Streamlit validée avec succès")
         print(f"📊 Référentiels chargés :")
         for type_op, phases in REFERENTIELS_PHASES.items():
             print(f"   - {type_op}: {len(phases)} phases")
         print(f"🎯 {len(STATUTS_GLOBAUX)} statuts dynamiques")
         print(f"👥 {len(INTERVENANTS['ACO'])} ACO configurés")
+        print(f"💰 Module REM : {'✅ Activé' if APP_CONFIG['rem_enabled'] else '❌ Désactivé'}")
+        print(f"🔧 Phases custom : {'✅ Activé' if APP_CONFIG['phases_custom_enabled'] else '❌ Désactivé'}")
     else:
         print("❌ Erreur dans la configuration SPIC 2.0")
